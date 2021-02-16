@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 surf = "2.1"
+tide = "0.16"
 async-std = "1.6"
 chrono = "0.4"
 serde = "1.0"

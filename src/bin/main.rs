@@ -1,5 +1,5 @@
 use async_std::task;
-use libre_oneroster::client;
+use libre_oneroster::{client, server};
 
 fn main() {
     let matches = clap::App::new("libre-oneroster")
@@ -25,9 +25,11 @@ fn main() {
                         .about("client secret for api auth")
                         .short('p')
                         .long("secret")
+                        .env("OR_CS")
                         .takes_value(true),
                 ),
         )
+        .subcommand(clap::App::new("server"))
         .get_matches();
 
     match matches.subcommand() {
@@ -39,6 +41,7 @@ fn main() {
             };
             task::block_on(client::run(conf)).unwrap();
         }
+        Some(("server", _a)) => task::block_on(server::run()).unwrap(),
         _ => {}
     }
 }

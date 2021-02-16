@@ -41,6 +41,7 @@ async fn login(c: &surf::Client, conf: Config) -> surf::Result<String> {
 }
 
 async fn get_all_academic_sessions(c: &surf::Client, token: &String) -> surf::Result<()> {
+    // doRequest("academicSessions")
     let t = format!("Bearer {}", token);
     let mut r = c.get("academicSessions").header("Authorization", t).await?;
     log::debug!("{:?}", &r);
@@ -48,3 +49,4 @@ async fn get_all_academic_sessions(c: &surf::Client, token: &String) -> surf::Re
     Ok(())
 }
 
+// async fn doRequest
