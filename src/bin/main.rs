@@ -29,7 +29,16 @@ fn main() {
                         .takes_value(true),
                 ),
         )
-        .subcommand(clap::App::new("server"))
+        .subcommand(
+            clap::App::new("server").arg(
+                clap::Arg::new("port")
+                    .about("port to bind server to")
+                    .short('p')
+                    .long("port")
+                    .takes_value(true)
+                    .default_value("8080"),
+            ),
+        )
         .get_matches();
 
     match matches.subcommand() {
