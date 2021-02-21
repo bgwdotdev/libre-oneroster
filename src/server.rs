@@ -1,3 +1,4 @@
+use log::debug;
 use serde_json;
 use sqlite::{SqlitePoolOptions, SqliteQueryResult};
 use sqlx::{migrate::MigrateDatabase, sqlite, Executor};
@@ -11,17 +12,41 @@ struct State {
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
 
-    let path = "sqlite:oneroster.db";
+    let path = "sqlite:db/oneroster.db";
     db_init(path).await?;
     let pool = db_connect(path).await?;
     db_init_schema(&pool).await?;
-    get(&pool).await?;
 
     let state = State { db: pool };
     let mut srv = tide::with_state(state);
     srv.at("/academicSessions").get(get_all_academic_sessions);
+    srv.at("/academicSessions").put(put_academic_ssesions);
     srv.listen("localhost:8080").await?;
     Ok(())
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Test {
+    sourced_id: String,
+    status: String,
+}
+
+async fn put_academic_ssesions(mut req: Request<State>) -> tide::Result<String> {
+    let j: Test = req.body_json().await?;
+    let js = json!(j).to_string();
+    log::debug!("put req for: {:?}", j);
+    sqlx::query!(
+        r#"INSERT INTO academicSessions(sourcedId, data)
+        VALUES(?, json(?))
+        ON CONFLICT(sourcedId)
+        DO UPDATE SET sourcedId=excluded.sourcedId, data=excluded.data"#,
+        j.sourced_id,
+        js,
+    )
+    .fetch_all(&req.state().db)
+    .await?;
+    Ok("ok \n".to_string())
 }
 
 async fn get_all_academic_sessions(req: Request<State>) -> tide::Result<String> {
@@ -38,21 +63,6 @@ async fn get_all_academic_sessions(req: Request<State>) -> tide::Result<String> 
     }
     let j = serde_json::to_string(&vs)?;
     Ok(format!("{} \n", j))
-}
-
-async fn get(pool: &sqlx::SqlitePool) -> tide::Result<()> {
-    let rows = sqlx::query!("SELECT data FROM academicSessions")
-        .fetch_all(pool)
-        .await?;
-
-    for row in rows.into_iter() {
-        if let Some(d) = row.data {
-            let v: serde_json::Value = serde_json::from_str(&d)?;
-            println!("{:?}", v);
-        }
-    }
-
-    Ok(())
 }
 
 async fn db_init(path: &str) -> sqlx::Result<()> {
@@ -87,7 +97,7 @@ async fn db_init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
 #[cfg(test)]
 #[async_std::test]
 async fn db() -> sqlx::Result<()> {
-    let path = "sqlite:rust_test.db";
+    let path = "sqlite:db/rust_test.db";
     db_init(path).await?;
     let pool = db_connect(path).await?;
     db_init_schema(&pool).await?;
