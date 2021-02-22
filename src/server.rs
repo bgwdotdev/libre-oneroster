@@ -9,6 +9,7 @@ use tide::Request;
 struct State {
     db: sqlx::SqlitePool,
 }
+
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
 
@@ -57,10 +58,9 @@ async fn put_academic_sesions(mut req: Request<State>) -> tide::Result<String> {
 }
 
 async fn get_all_academic_sessions(req: Request<State>) -> tide::Result<String> {
-    let rows = sqlx::query!("SELECT data FROM academicSessions")
+    let rows = sqlx::query!("SELECT json(data) as data FROM academicSessions")
         .fetch_all(&req.state().db)
         .await?;
-
     let mut vs: Vec<serde_json::Value> = Vec::new();
     for row in rows.into_iter() {
         if let Some(d) = row.data {
@@ -88,7 +88,7 @@ async fn db_connect(path: &str) -> sqlx::Result<sqlx::Pool<sqlx::Sqlite>> {
     log::info!("connecting to database...");
     return SqlitePoolOptions::new()
         .max_connections(1)
-        .connect(path) // TODO: move to cmd flag
+        .connect(path)
         .await;
 }
 
