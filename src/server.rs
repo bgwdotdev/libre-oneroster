@@ -20,33 +20,40 @@ pub async fn run() -> tide::Result<()> {
     let state = State { db: pool };
     let mut srv = tide::with_state(state);
     srv.at("/academicSessions").get(get_all_academic_sessions);
-    srv.at("/academicSessions").put(put_academic_ssesions);
+    srv.at("/academicSessions").put(put_academic_sesions);
     srv.listen("localhost:8080").await?;
     Ok(())
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Test {
     sourced_id: String,
     status: String,
+    year: Option<String>,
 }
 
-async fn put_academic_ssesions(mut req: Request<State>) -> tide::Result<String> {
-    let j: Test = req.body_json().await?;
-    let js = json!(j).to_string();
+async fn put_academic_sesions(mut req: Request<State>) -> tide::Result<String> {
+    let j: Vec<Test> = req.body_json().await?;
+    let mut t = req.state().db.begin().await?;
     log::debug!("put req for: {:?}", j);
-    sqlx::query!(
-        r#"INSERT INTO academicSessions(sourcedId, data)
-        VALUES(?, json(?))
-        ON CONFLICT(sourcedId)
-        DO UPDATE SET sourcedId=excluded.sourcedId, data=excluded.data"#,
-        j.sourced_id,
-        js,
-    )
-    .fetch_all(&req.state().db)
-    .await?;
-    Ok("ok \n".to_string())
+
+    for i in j.iter() {
+        let json = json!(i).to_string();
+        sqlx::query!(
+            r#"INSERT INTO academicSessions(sourcedId, data)
+            VALUES(?, json(?))
+            ON CONFLICT(sourcedId)
+            DO UPDATE SET sourcedId=excluded.sourcedId, data=excluded.data"#,
+            i.sourced_id,
+            json,
+        )
+        .execute(&mut t)
+        .await?;
+    }
+    t.commit().await?;
+
+    Ok("ok \n".to_string()) // TODO: implement proper response
 }
 
 async fn get_all_academic_sessions(req: Request<State>) -> tide::Result<String> {
