@@ -20,10 +20,37 @@ pub async fn run() -> tide::Result<()> {
 
     let state = State { db: pool };
     let mut srv = tide::with_state(state);
+    srv.with(JwtMiddleware::new());
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
     srv.listen("localhost:8080").await?;
     Ok(())
+}
+
+struct JwtMiddleware {}
+
+impl JwtMiddleware {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+#[tide::utils::async_trait]
+impl tide::Middleware<State> for JwtMiddleware {
+    async fn handle(
+        &self,
+        mut req: tide::Request<State>,
+        next: tide::Next<'_, State>,
+    ) -> tide::Result {
+        let h = req.header("Authorization");
+        println!("{:?}", h);
+        if let Some(_) = h {
+            let res = next.run(req).await;
+            Ok(res)
+        } else {
+            Ok(tide::Response::new(tide::StatusCode::Unauthorized))
+        }
+    }
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
