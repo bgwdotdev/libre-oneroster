@@ -1,10 +1,13 @@
-use log::debug;
+use std::time::SystemTime;
+
+use jsonwebtoken;
 use serde_json;
-use sqlite::{SqlitePoolOptions, SqliteQueryResult};
-use sqlx::{migrate::MigrateDatabase, sqlite, Executor};
+use sqlite::SqlitePoolOptions;
+use sqlx::{migrate::MigrateDatabase, sqlite};
 use tide::prelude::*;
 use tide::Request;
 
+// server
 #[derive(Clone)]
 struct State {
     db: sqlx::SqlitePool,
@@ -23,10 +26,73 @@ pub async fn run() -> tide::Result<()> {
     srv.with(JwtMiddleware::new());
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
+    srv.at("/login").post(login);
+    srv.at("/validate_token").get(validate_token);
     srv.listen("localhost:8080").await?;
     Ok(())
 }
 
+// jwt handler
+#[derive(Debug, Deserialize, Serialize)]
+struct Claims {
+    aud: String,
+    exp: u64,
+    sub: String,
+    // scopes: String,
+}
+// scopes:
+// roster-core.readonly roster.readonly roster-demographics.readonly
+// resource.readonly gradebook.readonly gradebook.createput gradebook.delete
+
+lazy_static::lazy_static! {
+    static ref JWT_ENCODE_KEY: jsonwebtoken::EncodingKey = {
+        jsonwebtoken::EncodingKey::from_rsa_pem(include_bytes!("../certs/localhost.key.pem"))
+            .expect("Problem loading private key")
+    };
+    // jwt crate doesn't support x509 so must extract pub key with openssl, see:
+    // https://github.com/Keats/jsonwebtoken/issues/127
+    static ref JWT_DECODE_KEY: jsonwebtoken::DecodingKey = {
+        let cert = openssl::x509::X509::from_pem(include_bytes!("../certs/localhost.pem"))
+            .expect("problem loading pub pem");
+        let pem = cert.public_key().unwrap().rsa().unwrap().public_key_to_pem().unwrap();
+        let pubkey = jsonwebtoken::DecodingKey::from_rsa_pem(&pem).unwrap();
+        return pubkey;
+    };
+}
+
+async fn login(_req: tide::Request<State>) -> tide::Result<String> {
+    let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+    let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
+        + std::time::Duration::from_secs(10);
+    let claims = Claims {
+        aud: "localhost".to_string(),
+        exp: exp.as_secs(),
+        sub: "username".to_string(),
+    };
+    let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
+    println!("jwt:\n{}\n", token);
+
+    Ok(token)
+}
+
+async fn validate_token(req: tide::Request<State>) -> tide::Result<String> {
+    if let Some(bearer) = req.header("Authorization").and_then(|h| h.get(0)) {
+        if let Some(token) = bearer.to_string().split(' ').nth(1) {
+            log::debug!("validating token: {}", token);
+            let val = jsonwebtoken::Validation {
+                algorithms: vec![jsonwebtoken::Algorithm::RS256],
+                ..Default::default()
+            };
+            match jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val) {
+                Ok(_) => return Ok("valid\n".to_string()),
+                Err(_) => return Ok("invalid\n".to_string()),
+            }
+        }
+    }
+    Ok("invalid\n".to_string())
+}
+
+// jwt middleware
 struct JwtMiddleware {}
 
 impl JwtMiddleware {
@@ -37,13 +103,9 @@ impl JwtMiddleware {
 
 #[tide::utils::async_trait]
 impl tide::Middleware<State> for JwtMiddleware {
-    async fn handle(
-        &self,
-        mut req: tide::Request<State>,
-        next: tide::Next<'_, State>,
-    ) -> tide::Result {
+    async fn handle(&self, req: tide::Request<State>, next: tide::Next<'_, State>) -> tide::Result {
         let h = req.header("Authorization");
-        println!("{:?}", h);
+        println!("{:?}\n", h);
         if let Some(_) = h {
             let res = next.run(req).await;
             Ok(res)
@@ -53,6 +115,7 @@ impl tide::Middleware<State> for JwtMiddleware {
     }
 }
 
+// endpoints
 #[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Test {
@@ -111,6 +174,7 @@ async fn db_init(path: &str) -> sqlx::Result<()> {
     Ok(())
 }
 
+// db
 async fn db_connect(path: &str) -> sqlx::Result<sqlx::Pool<sqlx::Sqlite>> {
     log::info!("connecting to database...");
     return SqlitePoolOptions::new()
@@ -128,6 +192,7 @@ async fn db_init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
     Ok(())
 }
 
+// tests
 #[cfg(test)]
 #[async_std::test]
 async fn db() -> sqlx::Result<()> {
