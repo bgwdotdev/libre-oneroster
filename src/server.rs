@@ -27,7 +27,7 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
     srv.at("/login").post(login);
-    srv.at("/validate_token").get(validate_token);
+    srv.at("/check_token").get(check_token);
     srv.listen("localhost:8080").await?;
     Ok(())
 }
@@ -75,21 +75,27 @@ async fn login(_req: tide::Request<State>) -> tide::Result<String> {
     Ok(token)
 }
 
-async fn validate_token(req: tide::Request<State>) -> tide::Result<String> {
+async fn validate_token(token: &str) -> bool {
+    log::debug!("validating token: {}", token);
+    let val = jsonwebtoken::Validation {
+        algorithms: vec![jsonwebtoken::Algorithm::RS256],
+        ..Default::default()
+    };
+    match jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
+async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
     if let Some(bearer) = req.header("Authorization").and_then(|h| h.get(0)) {
         if let Some(token) = bearer.to_string().split(' ').nth(1) {
-            log::debug!("validating token: {}", token);
-            let val = jsonwebtoken::Validation {
-                algorithms: vec![jsonwebtoken::Algorithm::RS256],
-                ..Default::default()
-            };
-            match jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val) {
-                Ok(_) => return Ok("valid\n".to_string()),
-                Err(_) => return Ok("invalid\n".to_string()),
+            if validate_token(token).await == true {
+                return Ok("✔ Token valid\n".to_string());
             }
         }
     }
-    Ok("invalid\n".to_string())
+    Ok("✗ invalid\n".to_string())
 }
 
 // jwt middleware
