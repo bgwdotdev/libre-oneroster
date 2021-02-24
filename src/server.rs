@@ -70,7 +70,7 @@ async fn login(_req: tide::Request<State>) -> tide::Result<String> {
         sub: "username".to_string(),
     };
     let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
-    println!("jwt:\n{}\n", token);
+    log::debug!("JWT:\n{}\n", token);
 
     Ok(token)
 }
@@ -111,7 +111,7 @@ impl JwtMiddleware {
 impl tide::Middleware<State> for JwtMiddleware {
     async fn handle(&self, req: tide::Request<State>, next: tide::Next<'_, State>) -> tide::Result {
         let h = req.header("Authorization");
-        println!("{:?}\n", h);
+        log::debug!("Authorization Header:\n{:?}\n", h);
         if let Some(_) = h {
             let res = next.run(req).await;
             Ok(res)
