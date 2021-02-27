@@ -25,7 +25,7 @@ pub async fn run() -> tide::Result<()> {
     let state = State { db: pool };
     let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
-    srv.with(JwtMiddleware::new());
+    //srv.with(JwtMiddleware::new());
     log::info!("ready on: {}", url_port);
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
@@ -33,6 +33,33 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/check_token").get(check_token);
     srv.listen(url_port).await?;
     Ok(())
+}
+
+// auth
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Creds {
+    client_id: String,
+    client_secret: String,
+}
+
+async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
+    let creds: Creds = req.body_form().await?;
+    log::info!("login attempt from: {}", creds.client_id);
+    let res = sqlx::query_as!(
+        Creds,
+        "SELECT client_id, client_secret FROM credentials WHERE client_id = ?",
+        creds.client_id
+    )
+    .fetch_one(&req.state().db)
+    .await?;
+    // TODO: use salt/hashing
+    if creds.client_secret == res.client_secret {
+        let token = create_token(creds.client_id).await?;
+        return Ok(token);
+    }
+    // TODO: provide proper return response
+    Ok("nope".to_string())
 }
 
 // jwt handler
@@ -62,32 +89,6 @@ lazy_static::lazy_static! {
         let pubkey = jsonwebtoken::DecodingKey::from_rsa_pem(&pem).unwrap();
         return pubkey;
     };
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Creds {
-    client_id: String,
-    client_secret: String,
-}
-
-async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
-    let creds: Creds = req.body_form().await?;
-    log::info!("login attempt from: {}", creds.client_id);
-    let res = sqlx::query_as!(
-        Creds,
-        "SELECT client_id, client_secret FROM credentials WHERE client_id = ?",
-        creds.client_id
-    )
-    .fetch_one(&req.state().db)
-    .await?;
-    // TODO: use salt/hashing
-    if creds.client_secret == res.client_secret {
-        let token = create_token(creds.client_id).await?;
-        return Ok(token);
-    }
-    // TODO: provide proper return response
-    Ok("nope".to_string())
 }
 
 async fn create_token(id: String) -> tide::Result<String> {
