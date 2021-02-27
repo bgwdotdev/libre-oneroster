@@ -1,9 +1,8 @@
-use std::time::SystemTime;
-
 use jsonwebtoken;
 use serde_json;
 use sqlite::SqlitePoolOptions;
 use sqlx::{migrate::MigrateDatabase, sqlite};
+use std::time::SystemTime;
 use tide::prelude::*;
 use tide::Request;
 
@@ -44,6 +43,7 @@ struct Claims {
 // roster-core.readonly roster.readonly roster-demographics.readonly
 // resource.readonly gradebook.readonly gradebook.createput gradebook.delete
 
+// TODO: get keys from user
 lazy_static::lazy_static! {
     static ref JWT_ENCODE_KEY: jsonwebtoken::EncodingKey = {
         jsonwebtoken::EncodingKey::from_rsa_pem(include_bytes!("../certs/localhost.key.pem"))
@@ -60,23 +60,48 @@ lazy_static::lazy_static! {
     };
 }
 
-async fn login(_req: tide::Request<State>) -> tide::Result<String> {
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Creds {
+    client_id: String,
+    client_secret: String,
+}
+
+async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
+    let creds: Creds = req.body_form().await?;
+    log::info!("login attempt from: {}", creds.client_id);
+    let res = sqlx::query_as!(
+        Creds,
+        "SELECT client_id, client_secret FROM credentials WHERE client_id = ?",
+        creds.client_id
+    )
+    .fetch_one(&req.state().db)
+    .await?;
+    // TODO: use salt/hashing
+    if creds.client_secret == res.client_secret {
+        let token = create_token(creds.client_id).await?;
+        return Ok(token);
+    }
+    // TODO: provide proper return response
+    Ok("nope".to_string())
+}
+
+async fn create_token(id: String) -> tide::Result<String> {
     let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
         + std::time::Duration::from_secs(10);
     let claims = Claims {
         aud: "localhost".to_string(),
         exp: exp.as_secs(),
-        sub: "username".to_string(),
+        sub: id,
     };
     let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
-    log::debug!("JWT:\n{}\n", token);
-
+    log::debug!("creating token:\n{}", token);
     Ok(token)
 }
 
 async fn validate_token(token: &str) -> bool {
-    log::debug!("validating token: {}", token);
+    log::debug!("validating token:\n{}", token);
     let val = jsonwebtoken::Validation {
         algorithms: vec![jsonwebtoken::Algorithm::RS256],
         ..Default::default()
@@ -95,7 +120,7 @@ async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
             }
         }
     }
-    Ok("✗ invalid\n".to_string())
+    Ok("✗ Token invalid\n".to_string())
 }
 
 // jwt middleware
@@ -192,7 +217,12 @@ async fn db_connect(path: &str) -> sqlx::Result<sqlx::Pool<sqlx::Sqlite>> {
 async fn db_init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
     let mut t = pool.begin().await?;
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS academicSessions (id INTEGER PRIMARY KEY AUTOINCREMENT, sourcedId STRING UNIQUE, data JSON)",
+        r#"
+        CREATE TABLE IF NOT EXISTS academicSessions 
+        (id INTEGER PRIMARY KEY AUTOINCREMENT, sourcedId STRING UNIQUE, data JSON);
+        CREATE TABLE IF NOT EXISTS credentials
+        (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT UNIQUE NOT NULL, client_secret TEXT NOT NULL);
+        "#,
     ).execute(&mut t).await?;
     t.commit().await?;
     Ok(())
