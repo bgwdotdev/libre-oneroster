@@ -14,6 +14,8 @@ struct State {
 
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
+    let hello = "hello";
+    log::info!("starting server: {}", hello);
 
     let path = "sqlite:db/oneroster.db";
     db_init(path).await?;
@@ -21,13 +23,15 @@ pub async fn run() -> tide::Result<()> {
     db_init_schema(&pool).await?;
 
     let state = State { db: pool };
+    let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
     srv.with(JwtMiddleware::new());
+    log::info!("ready on: {}", url_port);
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
     srv.at("/login").post(login);
     srv.at("/check_token").get(check_token);
-    srv.listen("localhost:8080").await?;
+    srv.listen(url_port).await?;
     Ok(())
 }
 
@@ -107,7 +111,10 @@ async fn validate_token(token: &str) -> bool {
         ..Default::default()
     };
     match jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val) {
-        Ok(_) => true,
+        Ok(t) => {
+            log::debug!("validated:\n{:?}", t);
+            true
+        }
         Err(_) => false,
     }
 }
@@ -136,7 +143,7 @@ impl JwtMiddleware {
 impl tide::Middleware<State> for JwtMiddleware {
     async fn handle(&self, req: tide::Request<State>, next: tide::Next<'_, State>) -> tide::Result {
         let h = req.header("Authorization");
-        log::debug!("Authorization Header:\n{:?}\n", h);
+        log::debug!("Authorization Header:\n{:?}", h);
         if let Some(_) = h {
             let res = next.run(req).await;
             Ok(res)
@@ -218,7 +225,7 @@ async fn db_init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
     let mut t = pool.begin().await?;
     sqlx::query(
         r#"
-        CREATE TABLE IF NOT EXISTS academicSessions 
+        CREATE TABLE IF NOT EXISTS academicSessions
         (id INTEGER PRIMARY KEY AUTOINCREMENT, sourcedId STRING UNIQUE, data JSON);
         CREATE TABLE IF NOT EXISTS credentials
         (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT UNIQUE NOT NULL, client_secret TEXT NOT NULL);
