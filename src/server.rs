@@ -58,12 +58,13 @@ async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
     .fetch_one(&req.state().db)
     .await?;
     // TODO: use salt/hashing
-    if creds.client_secret == res.client_secret {
+    let compare = bcrypt::verify(creds.client_secret, &res.client_secret)?;
+    if compare {
         let token = create_token(creds.client_id).await?;
         return Ok(token);
     }
     // TODO: provide proper return response
-    Ok("nope".to_string())
+    Ok("nope\n".to_string())
 }
 
 async fn create_user(req: tide::Request<State>) -> tide::Result<String> {
