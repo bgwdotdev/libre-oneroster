@@ -113,6 +113,27 @@ async fn generate_password() -> Result<(String, String), bcrypt::BcryptError> {
     Ok((plaintext, encrypt))
 }
 
+async fn delete_user(req: tide::Request<State>) -> tide::Result {
+    let uuid = req.param("uuid")?;
+    let res = db_delete_user(uuid, &req.state().db).await?;
+    if res {
+        return Ok(tide::Response::builder(200).build());
+    }
+    Ok(tide::Response::builder(404).build())
+}
+
+async fn db_delete_user(uuid: &str, db: &sqlx::SqlitePool) -> sqlx::Result<bool> {
+    let deleted = sqlx::query!("DELETE FROM credentials WHERE client_id = ?", uuid)
+        .execute(db)
+        .await?
+        .rows_affected();
+
+    if deleted > 0 {
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 // jwt handler
 #[derive(Debug, Deserialize, Serialize)]
 struct Claims {
