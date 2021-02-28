@@ -57,26 +57,18 @@ async fn login(mut req: tide::Request<State>) -> tide::Result {
     )
     .fetch_one(&req.state().db)
     .await?;
-    // TODO: use salt/hashing
     let compare = bcrypt::verify(creds.client_secret, &res.client_secret)?;
     if compare {
         let token = create_token(creds.client_id).await?;
         return Ok(tide::Response::builder(200).body(json!(token)).build());
     }
-    // TODO: provide proper return response
     Ok(tide::Response::new(tide::StatusCode::Unauthorized))
 }
 
-async fn create_user(req: tide::Request<State>) -> tide::Result<String> {
+async fn create_user(req: tide::Request<State>) -> tide::Result {
     let tag = req.param("tag")?;
     let creds = generate_user(tag, &req.state().db).await?;
-    let result = format!(
-        "Please store the secret securely as it will never be avaliable again.\n\
-        clientId: {}\n\
-        clientSecret: {}\n",
-        creds.client_id, creds.client_secret,
-    );
-    Ok(result)
+    Ok(tide::Response::builder(200).body(json!(creds)).build())
 }
 
 async fn generate_user(tag: &str, db: &sqlx::SqlitePool) -> tide::Result<Creds> {
