@@ -32,9 +32,10 @@ pub async fn run() -> tide::Result<()> {
     log::info!("ready on: {}", url_port);
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
-    srv.at("/login").post(login);
-    srv.at("/create_user/:tag").post(create_user);
-    srv.at("/check_token").get(check_token);
+    srv.at("/auth/login").post(login);
+    srv.at("/auth/create_user/:tag").post(create_user);
+    srv.at("/auth/delete_user/:uuid").delete(delete_user);
+    srv.at("/auth/check_token").get(check_token);
     srv.listen(url_port).await?;
     Ok(())
 }
