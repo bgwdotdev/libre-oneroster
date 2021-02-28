@@ -28,14 +28,25 @@ pub async fn run() -> tide::Result<()> {
     let state = State { db: pool };
     let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
-    //srv.with(JwtMiddleware::new());
+    let mut authsrv = tide::with_state(srv.state().clone());
+
     log::info!("ready on: {}", url_port);
-    srv.at("/academicSessions").get(get_all_academic_sessions);
-    srv.at("/academicSessions").put(put_academic_sesions);
+    srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
-    srv.at("/auth/create_user/:tag").post(create_user);
-    srv.at("/auth/delete_user/:uuid").delete(delete_user);
     srv.at("/auth/check_token").get(check_token);
+
+    authsrv.with(JwtMiddleware::new());
+    authsrv
+        .at("/")
+        .get(|_| async { Ok("hello protected world\n") });
+    authsrv
+        .at("/academicSessions")
+        .get(get_all_academic_sessions);
+    authsrv.at("/academicSessions").put(put_academic_sesions);
+    authsrv.at("/admin/create_user/:tag").post(create_user);
+    authsrv.at("/admin/delete_user/:uuid").delete(delete_user);
+
+    srv.at("/ims/oneroster/v1p1").nest(authsrv);
     srv.listen(url_port).await?;
     Ok(())
 }
