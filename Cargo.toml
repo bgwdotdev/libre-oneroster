@@ -20,3 +20,7 @@ sqlx = { version = "0.5", features = [ "sqlite", "runtime-async-std-native-tls" 
 jsonwebtoken = "8.0.0-beta.0"
 openssl = "0.10"
 lazy_static = "1.4"
+uuid = { version = "0.8", features = [ "v4" ] }
+rand = { version = "0.8", features = [ "getrandom" ]}
+hex = "0.4"
+bcrypt = "0.9"

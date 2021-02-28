@@ -1,10 +1,13 @@
+use bcrypt;
 use jsonwebtoken;
+use rand::{rngs, Rng, RngCore};
 use serde_json;
 use sqlite::SqlitePoolOptions;
 use sqlx::{migrate::MigrateDatabase, sqlite};
 use std::time::SystemTime;
 use tide::prelude::*;
 use tide::Request;
+use uuid::Uuid;
 
 // server
 #[derive(Clone)]
@@ -30,6 +33,7 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/academicSessions").get(get_all_academic_sessions);
     srv.at("/academicSessions").put(put_academic_sesions);
     srv.at("/login").post(login);
+    srv.at("/create_user/:tag").post(create_user);
     srv.at("/check_token").get(check_token);
     srv.listen(url_port).await?;
     Ok(())
@@ -60,6 +64,60 @@ async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
     }
     // TODO: provide proper return response
     Ok("nope".to_string())
+}
+
+async fn create_user(req: tide::Request<State>) -> tide::Result<String> {
+    let tag = req.param("tag")?;
+    let creds = generate_user(tag, &req.state().db).await?;
+    let result = format!(
+        "Please store the secret securely as it will never be avaliable again.\n\
+        clientId: {}\n\
+        clientSecret: {}\n",
+        creds.client_id, creds.client_secret,
+    );
+    Ok(result)
+}
+
+async fn generate_user(tag: &str, db: &sqlx::SqlitePool) -> tide::Result<Creds> {
+    let new = generate_credentials().await?;
+    sqlx::query!(
+        "INSERT INTO credentials(client_id, client_secret, tag) VALUES (?, ?, ?)",
+        new.creds.client_id,
+        new.encrypt,
+        tag
+    )
+    .execute(db)
+    .await?;
+    Ok(new.creds)
+}
+
+struct NewCreds {
+    creds: Creds,
+    encrypt: String,
+}
+
+async fn generate_credentials() -> Result<NewCreds, bcrypt::BcryptError> {
+    let (client_secret, encrypt) = generate_password().await?;
+    let creds = NewCreds {
+        creds: Creds {
+            client_id: Uuid::new_v4().to_hyphenated().to_string(),
+            client_secret,
+        },
+        encrypt,
+    };
+    Ok(creds)
+}
+
+/// Creates a variable length hex password using cryptographically
+/// secure number generators backed by the OS
+async fn generate_password() -> Result<(String, String), bcrypt::BcryptError> {
+    let length = rngs::OsRng.gen_range(32..40);
+    let mut key = vec![0u8; length];
+    rngs::OsRng.fill_bytes(&mut key);
+
+    let plaintext = hex::encode(&key);
+    let encrypt = bcrypt::hash(&plaintext, 12)?;
+    Ok((plaintext, encrypt))
 }
 
 // jwt handler
@@ -228,10 +286,15 @@ async fn db_init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
         r#"
         CREATE TABLE IF NOT EXISTS academicSessions
         (id INTEGER PRIMARY KEY AUTOINCREMENT, sourcedId STRING UNIQUE, data JSON);
+
         CREATE TABLE IF NOT EXISTS credentials
-        (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT UNIQUE NOT NULL, client_secret TEXT NOT NULL);
+        (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT UNIQUE NOT NULL,
+        client_secret TEXT NOT NULL, tag TEXT NOT NULL);
+
         "#,
-    ).execute(&mut t).await?;
+    )
+    .execute(&mut t)
+    .await?;
     t.commit().await?;
     Ok(())
 }
