@@ -146,6 +146,34 @@ async fn db_delete_user(uuid: &str, db: &sqlx::SqlitePool) -> sqlx::Result<bool>
     Ok(false)
 }
 
+#[derive(Serialize)]
+struct UserList {
+    tag: String,
+    client_id: String,
+}
+
+async fn get_api_users(req: tide::Request<State>) -> tide::Result {
+    let res = db_get_api_users("1".to_string(), "1".to_string(), &req.state().db).await?;
+    Ok(tide::Response::builder(200).body(json!(res)).build())
+}
+
+async fn db_get_api_users(
+    fcol: String,
+    fval: String,
+    db: &sqlx::SqlitePool,
+) -> sqlx::Result<Vec<UserList>> {
+    let rows = sqlx::query_as!(
+        UserList,
+        "SELECT tag, client_id FROM credentials WHERE ? = ?",
+        fcol,
+        fval,
+    )
+    .fetch_all(db)
+    .await?;
+
+    Ok(rows)
+}
+
 // jwt handler
 #[derive(Debug, Deserialize, Serialize)]
 struct Claims {
