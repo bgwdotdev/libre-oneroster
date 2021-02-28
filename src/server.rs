@@ -47,7 +47,7 @@ struct Creds {
     client_secret: String,
 }
 
-async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
+async fn login(mut req: tide::Request<State>) -> tide::Result {
     let creds: Creds = req.body_form().await?;
     log::info!("login attempt from: {}", creds.client_id);
     let res = sqlx::query_as!(
@@ -61,10 +61,10 @@ async fn login(mut req: tide::Request<State>) -> tide::Result<String> {
     let compare = bcrypt::verify(creds.client_secret, &res.client_secret)?;
     if compare {
         let token = create_token(creds.client_id).await?;
-        return Ok(token);
+        return Ok(tide::Response::builder(200).body(json!(token)).build());
     }
     // TODO: provide proper return response
-    Ok("nope\n".to_string())
+    Ok(tide::Response::new(tide::StatusCode::Unauthorized))
 }
 
 async fn create_user(req: tide::Request<State>) -> tide::Result<String> {
@@ -150,18 +150,33 @@ lazy_static::lazy_static! {
     };
 }
 
-async fn create_token(id: String) -> tide::Result<String> {
+#[derive(Debug, Deserialize, Serialize)]
+struct TokenReturn {
+    access_token: String,
+    token_type: String,
+    expires_in: u64,
+    scope: String,
+}
+
+async fn create_token(id: String) -> tide::Result<TokenReturn> {
     let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+    let exp_in: u64 = 3600;
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
-        + std::time::Duration::from_secs(10);
+        + std::time::Duration::from_secs(exp_in);
     let claims = Claims {
         aud: "localhost".to_string(),
         exp: exp.as_secs(),
         sub: id,
     };
     let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
-    log::debug!("creating token:\n{}", token);
-    Ok(token)
+    log::debug!("creating token:\n{}", &token);
+    let result = TokenReturn {
+        access_token: token,
+        token_type: "bearer".to_string(),
+        expires_in: exp_in,
+        scope: "TODO".to_string(),
+    };
+    Ok(result)
 }
 
 async fn validate_token(token: &str) -> bool {
