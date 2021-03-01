@@ -36,11 +36,11 @@ pub(super) async fn generate_password() -> Result<(String, String), bcrypt::Bcry
 
 // jwt handler
 #[derive(Debug, Deserialize, Serialize)]
-struct Claims {
+pub(super) struct Claims {
     aud: String,
     exp: u64,
     sub: String,
-    // scopes: String,
+    pub(super) scope: String,
 }
 // scopes:
 // roster-core.readonly roster.readonly roster-demographics.readonly
@@ -81,6 +81,7 @@ pub(super) async fn create_token(id: String) -> tide::Result<TokenReturn> {
         aud: "localhost".to_string(),
         exp: exp.as_secs(),
         sub: id,
+        scope: "read".to_string(),
     };
     let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
     log::debug!("creating token:\n{}", &token);
@@ -88,18 +89,25 @@ pub(super) async fn create_token(id: String) -> tide::Result<TokenReturn> {
         access_token: token,
         token_type: "bearer".to_string(),
         expires_in: exp_in,
-        scope: "TODO".to_string(),
+        scope: "read".to_string(),
     };
     Ok(result)
 }
 
-pub(super) async fn validate_token(token: &str) -> bool {
-    log::debug!("validating token:\n{}", token);
+pub(super) async fn decode_token(
+    token: String,
+) -> jsonwebtoken::errors::Result<jsonwebtoken::TokenData<Claims>> {
     let val = jsonwebtoken::Validation {
         algorithms: vec![jsonwebtoken::Algorithm::RS256],
         ..Default::default()
     };
-    match jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val) {
+    let claims = jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val)?;
+    Ok(claims)
+}
+
+pub(super) async fn validate_token(token: String) -> bool {
+    log::debug!("validating token:\n{}", token);
+    match decode_token(token).await {
         Ok(t) => {
             log::debug!("validated:\n{:?}", t);
             true

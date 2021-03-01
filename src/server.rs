@@ -32,7 +32,7 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
 
-    authsrv.with(JwtMiddleware::new());
+    authsrv.with(JwtMiddleware::new(vec!["read".to_string()]));
     authsrv
         .at("/")
         .get(|_| async { Ok("hello protected world\n") });
@@ -101,37 +101,51 @@ async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
-    if let Some(bearer) = req.header("Authorization").and_then(|h| h.get(0)) {
-        if let Some(token) = bearer.to_string().split(' ').nth(1) {
-            if auth::validate_token(token).await == true {
-                return Ok("✔ Token valid\n".to_string());
-            }
+    if let Some(token) = parse_auth_header(&req).await {
+        if auth::validate_token(token).await {
+            return Ok("✔ Token valid\n".to_string());
         }
     }
     Ok("✗ Token invalid\n".to_string())
 }
 
 // jwt middleware
-struct JwtMiddleware {}
+struct JwtMiddleware {
+    scope: Vec<String>,
+}
 
 impl JwtMiddleware {
-    fn new() -> Self {
-        Self {}
+    fn new(scope: Vec<String>) -> Self {
+        Self { scope }
     }
 }
 
 #[tide::utils::async_trait]
 impl tide::Middleware<State> for JwtMiddleware {
     async fn handle(&self, req: tide::Request<State>, next: tide::Next<'_, State>) -> tide::Result {
-        let h = req.header("Authorization");
-        log::debug!("Authorization Header:\n{:?}", h);
-        if let Some(_) = h {
-            let res = next.run(req).await;
-            Ok(res)
-        } else {
-            Ok(tide::Response::new(tide::StatusCode::Unauthorized))
+        if let Some(token) = parse_auth_header(&req).await {
+            log::debug!("Authorization Header:\n{:?}", token);
+            match auth::decode_token(token).await {
+                Ok(t) => {
+                    if t.claims.scope.contains(&self.scope[0]) {
+                        log::debug!("{:?}", t.claims.scope);
+                        return Ok(next.run(req).await);
+                    }
+                    log::debug!("no scope");
+                }
+                Err(_) => return Ok(tide::Response::builder(403).build()),
+            }
         }
+        Ok(tide::Response::builder(403).build())
     }
+}
+
+async fn parse_auth_header(req: &tide::Request<State>) -> Option<String> {
+    if let Some(bearer) = req.header("Authorization").and_then(|h| h.get(0)) {
+        let token = bearer.to_string().split(' ').nth(1).map(|t| t.to_string());
+        return token;
+    }
+    None
 }
 
 // tests
