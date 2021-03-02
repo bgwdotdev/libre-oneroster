@@ -77,11 +77,12 @@ pub(super) async fn create_token(id: String) -> tide::Result<TokenReturn> {
     let exp_in: u64 = 3600;
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
         + std::time::Duration::from_secs(exp_in);
+    let scope = "roster-core.readonly admin".to_string();
     let claims = Claims {
         aud: "localhost".to_string(),
         exp: exp.as_secs(),
         sub: id,
-        scope: "read".to_string(),
+        scope: scope.clone(),
     };
     let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
     log::debug!("creating token:\n{}", &token);
@@ -89,7 +90,7 @@ pub(super) async fn create_token(id: String) -> tide::Result<TokenReturn> {
         access_token: token,
         token_type: "bearer".to_string(),
         expires_in: exp_in,
-        scope: "read".to_string(),
+        scope: scope.clone(),
     };
     Ok(result)
 }

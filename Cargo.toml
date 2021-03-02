@@ -24,3 +24,4 @@ uuid = { version = "0.8", features = [ "v4" ] }
 rand = { version = "0.8", features = [ "getrandom" ]}
 hex = "0.4"
 bcrypt = "0.9"
+http-types = "2.10"

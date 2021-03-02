@@ -3,6 +3,7 @@ mod db;
 
 use crate::model;
 use bcrypt;
+use http_types::Method;
 use tide::prelude::*;
 use tide::Request;
 
@@ -25,14 +26,14 @@ pub async fn run() -> tide::Result<()> {
     let state = State { db: pool };
     let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
-    let mut authsrv = tide::with_state(srv.state().clone());
 
     log::info!("ready on: {}", url_port);
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
 
-    authsrv.with(JwtMiddleware::new(vec!["read".to_string()]));
+    let mut authsrv = tide::with_state(srv.state().clone());
+    authsrv.with(JwtMiddleware::new(vec!["roster-core".to_string()]));
     authsrv
         .at("/")
         .get(|_| async { Ok("hello protected world\n") });
@@ -40,10 +41,13 @@ pub async fn run() -> tide::Result<()> {
         .at("/academicSessions")
         .get(get_all_academic_sessions);
     authsrv.at("/academicSessions").put(put_academic_sesions);
-    authsrv.at("/admin/users").get(get_api_users);
-    authsrv.at("/admin/user/:tag").post(create_api_user);
-    authsrv.at("/admin/user/:uuid").delete(delete_api_user);
+    let mut adminsrv = tide::with_state(authsrv.state().clone());
+    adminsrv.with(JwtMiddleware::new(vec!["admin".to_string()]));
+    adminsrv.at("/users").get(get_api_users);
+    adminsrv.at("/user/:tag").post(create_api_user);
+    adminsrv.at("/user/:uuid").delete(delete_api_user);
 
+    authsrv.at("/admin").nest(adminsrv);
     srv.at("/ims/oneroster/v1p1").nest(authsrv);
     srv.listen(url_port).await?;
     Ok(())
@@ -125,19 +129,60 @@ impl tide::Middleware<State> for JwtMiddleware {
     async fn handle(&self, req: tide::Request<State>, next: tide::Next<'_, State>) -> tide::Result {
         if let Some(token) = parse_auth_header(&req).await {
             log::debug!("Authorization Header:\n{:?}", token);
+
             match auth::decode_token(token).await {
                 Ok(t) => {
-                    if t.claims.scope.contains(&self.scope[0]) {
-                        log::debug!("{:?}", t.claims.scope);
+                    if parse_permission(&self.scope, req.method(), &t.claims.scope).await {
                         return Ok(next.run(req).await);
                     }
-                    log::debug!("no scope");
                 }
                 Err(_) => return Ok(tide::Response::builder(403).build()),
             }
         }
         Ok(tide::Response::builder(403).build())
     }
+}
+
+async fn parse_permission(
+    scopes: &Vec<String>,
+    method: http_types::Method,
+    target: &String,
+) -> bool {
+    let method = parse_method_permission(method).await;
+    if let Some(m) = method {
+        if parse_scope_permission(scopes, m, &target).await {
+            return true;
+        }
+        log::debug!(
+            "scope: {:?} does not meet requirements: {:?}, {:?}",
+            target,
+            scopes,
+            method
+        );
+    }
+    false
+}
+
+async fn parse_method_permission<'a>(method: http_types::Method) -> Option<&'a str> {
+    let result = match method {
+        Method::Get => Some("readonly"),
+        Method::Put => Some("createput"),
+        Method::Delete => Some("delete"),
+        Method::Post => Some("create"),
+        _ => None,
+    };
+    result
+}
+
+async fn parse_scope_permission(scopes: &Vec<String>, method: &str, target: &String) -> bool {
+    for scope in scopes {
+        let permission = scope.clone() + "." + method;
+        if target.contains(&permission) {
+            log::debug!("{:?} contains {:?}", target, &permission);
+            return true;
+        }
+    }
+    false
 }
 
 async fn parse_auth_header(req: &tide::Request<State>) -> Option<String> {
