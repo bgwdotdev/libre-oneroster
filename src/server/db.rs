@@ -8,6 +8,7 @@ use tide::prelude::*;
 pub(super) struct UserList {
     tag: String,
     client_id: String,
+    scope: String,
 }
 
 pub(super) async fn get_api_creds(
@@ -45,7 +46,21 @@ pub(super) async fn get_api_users(
 ) -> sqlx::Result<Vec<UserList>> {
     let rows = sqlx::query_as!(
         UserList,
-        "SELECT tag, client_id FROM credentials WHERE ? = ?",
+        r#"
+        SELECT
+            c.client_id
+            , c.tag
+            , group_concat(s.scope,' ') AS "scope!: String"
+        FROM
+            credentials c
+            INNER JOIN credential_scopes cs ON c.id = cs.credential_id
+            INNER JOIN scopes s ON cs.scope_id = s.id
+        WHERE
+            ? = ?
+            AND scope IS NOT NULL
+        GROUP BY 
+            c.client_id
+        "#,
         fcol,
         fval,
     )
