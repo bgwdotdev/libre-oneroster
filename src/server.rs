@@ -68,9 +68,10 @@ async fn login(mut req: tide::Request<State>) -> tide::Result {
     let compare = db::get_api_creds(&creds.client_id, &req.state().db).await?;
     let verify = bcrypt::verify(creds.client_secret, &compare.client_secret)?;
     if verify {
-        // auth::verifyscope()?;
-        let token = auth::create_token(creds.client_id, creds.scope).await?;
-        return Ok(tide::Response::builder(200).body(json!(token)).build());
+        if let Some(scopes) = auth::verify_scopes(&compare.scope, &creds.scope).await {
+            let token = auth::create_token(creds.client_id, scopes).await?;
+            return Ok(tide::Response::builder(200).body(json!(token)).build());
+        }
     }
     Ok(tide::Response::new(tide::StatusCode::Unauthorized))
 }

@@ -10,6 +10,24 @@ pub(super) struct NewCreds {
     pub(super) encrypt: String,
 }
 
+pub(super) async fn verify_scopes(current: &String, requested: &String) -> Option<String> {
+    let mut matches: Vec<&str> = vec![];
+    log::debug!("{}, {}", current, requested);
+    for r in requested.split(' ') {
+        for c in current.split(' ') {
+            if r.eq(c) {
+                matches.push(c);
+            }
+        }
+    }
+    log::debug!("allowed scopes: {:?}", matches);
+    if matches.len() >= 1 {
+        let m = matches.join(" ");
+        return Some(m);
+    }
+    None
+}
+
 pub(super) async fn generate_credentials() -> Result<NewCreds, bcrypt::BcryptError> {
     let (client_secret, encrypt) = generate_password().await?;
     let scope = "changeme".to_string();
