@@ -16,7 +16,21 @@ pub(super) async fn get_api_creds(
 ) -> sqlx::Result<super::Creds> {
     let res = sqlx::query_as!(
         super::Creds,
-        "SELECT client_id, client_secret FROM credentials WHERE client_id = ?",
+        r#"
+        SELECT
+            c.client_id
+            , c.client_secret
+            , group_concat(s.scope,' ') AS "scope!: String"
+        FROM
+            credentials c
+            INNER JOIN credential_scopes cs ON c.id = cs.credential_id
+            INNER JOIN scopes s ON cs.scope_id = s.id
+        WHERE
+            c.client_id = ?
+            AND scope IS NOT NULL
+        GROUP BY 
+            c.client_id
+        "#,
         client_id
     )
     .fetch_one(db)
@@ -41,20 +55,46 @@ pub(super) async fn get_api_users(
     Ok(rows)
 }
 
-pub(crate) async fn create_api_user(
-    tag: &str,
+#[derive(Deserialize)]
+pub(super) struct CreateApiUser {
+    tag: String,
+    scope: String,
+}
+
+pub(super) async fn create_api_user(
+    user: CreateApiUser,
     db: &sqlx::SqlitePool,
 ) -> tide::Result<super::Creds> {
     let new = auth::generate_credentials().await?;
+    let mut t = db.begin().await?;
     sqlx::query!(
         "INSERT INTO credentials(client_id, client_secret, tag) VALUES (?, ?, ?)",
         new.creds.client_id,
         new.encrypt,
-        tag
+        user.tag,
     )
-    .execute(db)
+    .execute(&mut t)
     .await?;
-    Ok(new.creds)
+    for scope in user.scope.split(' ') {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO credential_scopes (credential_id, scope_id) VALUES (
+            (SELECT id FROM credentials WHERE client_id = ?),
+            (SELECT id FROM scopes WHERE scope = ?)
+            )",
+            new.creds.client_id,
+            scope,
+        )
+        .execute(&mut t)
+        .await?;
+    }
+    t.commit().await?;
+    let authscopes = get_api_creds(&new.creds.client_id, db).await?;
+    let out = super::Creds {
+        client_id: new.creds.client_id.clone(),
+        client_secret: new.creds.client_id.clone(),
+        scope: authscopes.scope,
+    };
+    Ok(out)
 }
 
 pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> sqlx::Result<bool> {
@@ -121,19 +161,8 @@ pub(super) async fn init(path: &str) -> sqlx::Result<()> {
 
 pub(super) async fn init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
     let mut t = pool.begin().await?;
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS academicSessions
-        (id INTEGER PRIMARY KEY AUTOINCREMENT, sourcedId STRING UNIQUE, data JSON);
-
-        CREATE TABLE IF NOT EXISTS credentials
-        (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT UNIQUE NOT NULL,
-        client_secret TEXT NOT NULL, tag TEXT NOT NULL);
-
-        "#,
-    )
-    .execute(&mut t)
-    .await?;
+    sqlx::query_file!("db/schema.sql").execute(&mut t).await?;
+    sqlx::query_file!("db/init.sql").execute(&mut t).await?;
     t.commit().await?;
     Ok(())
 }

@@ -44,7 +44,7 @@ pub async fn run() -> tide::Result<()> {
     let mut adminsrv = tide::with_state(authsrv.state().clone());
     adminsrv.with(JwtMiddleware::new(vec!["admin".to_string()]));
     adminsrv.at("/users").get(get_api_users);
-    adminsrv.at("/user/:tag").post(create_api_user);
+    adminsrv.at("/user").post(create_api_user);
     adminsrv.at("/user/:uuid").delete(delete_api_user);
 
     authsrv.at("/admin").nest(adminsrv);
@@ -59,6 +59,7 @@ pub async fn run() -> tide::Result<()> {
 pub struct Creds {
     client_id: String,
     client_secret: String,
+    scope: String,
 }
 
 async fn login(mut req: tide::Request<State>) -> tide::Result {
@@ -67,15 +68,16 @@ async fn login(mut req: tide::Request<State>) -> tide::Result {
     let compare = db::get_api_creds(&creds.client_id, &req.state().db).await?;
     let verify = bcrypt::verify(creds.client_secret, &compare.client_secret)?;
     if verify {
-        let token = auth::create_token(creds.client_id).await?;
+        // auth::verifyscope()?;
+        let token = auth::create_token(creds.client_id, creds.scope).await?;
         return Ok(tide::Response::builder(200).body(json!(token)).build());
     }
     Ok(tide::Response::new(tide::StatusCode::Unauthorized))
 }
 
-async fn create_api_user(req: tide::Request<State>) -> tide::Result {
-    let tag = req.param("tag")?;
-    let creds = db::create_api_user(tag, &req.state().db).await?;
+async fn create_api_user(mut req: tide::Request<State>) -> tide::Result {
+    let new: db::CreateApiUser = req.body_json().await?;
+    let creds = db::create_api_user(new, &req.state().db).await?;
     Ok(tide::Response::builder(200).body(json!(creds)).build())
 }
 

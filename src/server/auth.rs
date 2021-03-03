@@ -12,10 +12,12 @@ pub(super) struct NewCreds {
 
 pub(super) async fn generate_credentials() -> Result<NewCreds, bcrypt::BcryptError> {
     let (client_secret, encrypt) = generate_password().await?;
+    let scope = "changeme".to_string();
     let creds = NewCreds {
         creds: super::Creds {
             client_id: Uuid::new_v4().to_hyphenated().to_string(),
             client_secret,
+            scope,
         },
         encrypt,
     };
@@ -72,12 +74,11 @@ pub(super) struct TokenReturn {
 }
 
 // TODO: change result type
-pub(super) async fn create_token(id: String) -> tide::Result<TokenReturn> {
+pub(super) async fn create_token(id: String, scope: String) -> tide::Result<TokenReturn> {
     let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
     let exp_in: u64 = 3600;
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
         + std::time::Duration::from_secs(exp_in);
-    let scope = "roster-core.readonly admin".to_string();
     let claims = Claims {
         aud: "localhost".to_string(),
         exp: exp.as_secs(),
