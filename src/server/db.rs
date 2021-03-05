@@ -80,7 +80,7 @@ pub(super) async fn create_api_user(
     user: CreateApiUser,
     db: &sqlx::SqlitePool,
 ) -> tide::Result<super::Creds> {
-    let new = auth::generate_credentials().await?;
+    let new = auth::credentials::generate_credentials().await?;
     let mut t = db.begin().await?;
     sqlx::query!(
         "INSERT INTO credentials(client_id, client_secret, tag) VALUES (?, ?, ?)",
