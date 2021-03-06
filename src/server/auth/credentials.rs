@@ -1,4 +1,5 @@
 use crate::server;
+use crate::server::{auth::jwt, db, Result};
 use bcrypt;
 use rand::{rngs, Rng, RngCore};
 use uuid::Uuid;
@@ -8,7 +9,18 @@ pub(crate) struct NewCreds {
     pub(crate) encrypt: String,
 }
 
-pub(crate) async fn verify_scopes(current: &String, requested: &String) -> Option<String> {
+pub(crate) async fn login(creds: server::Creds, db: &sqlx::SqlitePool) -> Result<jwt::TokenReturn> {
+    let compare = db::get_api_creds(&creds.client_id, db).await?;
+    let verify = bcrypt::verify(&creds.client_secret, &compare.client_secret)?;
+    if verify {
+        let scopes = verify_scopes(&compare.scope, &creds.scope).await?;
+        let token = jwt::create_token(creds.client_id, scopes).await?;
+        return Ok(token);
+    }
+    Err(server::ServerError::InvalidLogin)
+}
+
+pub(crate) async fn verify_scopes(current: &String, requested: &String) -> Result<String> {
     let mut matches: Vec<&str> = vec![];
     log::debug!("{}, {}", current, requested);
     for r in requested.split(' ') {
@@ -21,12 +33,12 @@ pub(crate) async fn verify_scopes(current: &String, requested: &String) -> Optio
     log::debug!("allowed scopes: {:?}", matches);
     if matches.len() >= 1 {
         let m = matches.join(" ");
-        return Some(m);
+        return Ok(m);
     }
-    None
+    Err(server::ServerError::NoAuthorizedScopes)
 }
 
-pub(crate) async fn generate_credentials() -> Result<NewCreds, bcrypt::BcryptError> {
+pub(crate) async fn generate_credentials() -> Result<NewCreds> {
     let (client_secret, encrypt) = generate_password().await?;
     let scope = "changeme".to_string();
     let creds = NewCreds {
@@ -42,7 +54,7 @@ pub(crate) async fn generate_credentials() -> Result<NewCreds, bcrypt::BcryptErr
 
 /// Creates a variable length hex password using cryptographically
 /// secure number generators backed by the OS
-pub(crate) async fn generate_password() -> Result<(String, String), bcrypt::BcryptError> {
+pub(crate) async fn generate_password() -> Result<(String, String)> {
     let length = rngs::OsRng.gen_range(32..40);
     let mut key = vec![0u8; length];
     rngs::OsRng.fill_bytes(&mut key);

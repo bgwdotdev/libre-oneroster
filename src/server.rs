@@ -3,8 +3,105 @@ mod db;
 
 use crate::model;
 use bcrypt;
+use std::{error, fmt};
 use tide::prelude::*;
+use tide::utils::After;
 use tide::Request;
+
+type Result<T> = std::result::Result<T, ServerError>;
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum CodeMajor {
+    Success,
+    Failure,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Severity {
+    Status,
+    Error,
+    Warning,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum CodeMinor {
+    FullSuccess,
+    UnknownObject,
+    InvalidData,
+    Unauthorized,
+    InvalidSortField,
+    InvalidFilterField,
+    InvalidSelectionField,
+    Forbidden,
+    ServerBusy,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ErrorPayload {
+    code_major: CodeMajor,
+    severity: Severity,
+    code_minor: CodeMinor,
+    description: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum ServerError {
+    Tide(tide::Error),
+    Surf(surf::Error),
+    Sqlx(sqlx::Error),
+    Bcrypt(bcrypt::BcryptError),
+    InvalidLogin,
+    NoAuthorizedScopes,
+    Unknown,
+}
+
+impl fmt::Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ServerError::Tide(ref e) => e.fmt(f),
+            ServerError::Surf(ref e) => e.fmt(f),
+            ServerError::Sqlx(ref e) => e.fmt(f),
+            ServerError::Bcrypt(ref e) => e.fmt(f),
+            ServerError::InvalidLogin => write!(f, "Invalid username/password"),
+            ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
+            ServerError::Unknown => write!(f, "Unknown error at this time"),
+        }
+    }
+}
+
+impl error::Error for ServerError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            //ServerError::Tide(ref e) => Some(e),
+            //ServerError::Surf(ref e) => Some(e),
+            ServerError::Sqlx(ref e) => Some(e),
+            ServerError::Bcrypt(ref e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<sqlx::Error> for ServerError {
+    fn from(err: sqlx::Error) -> ServerError {
+        ServerError::Sqlx(err)
+    }
+}
+
+impl From<bcrypt::BcryptError> for ServerError {
+    fn from(err: bcrypt::BcryptError) -> ServerError {
+        ServerError::Bcrypt(err)
+    }
+}
+
+impl From<tide::Error> for ServerError {
+    fn from(err: tide::Error) -> ServerError {
+        ServerError::Tide(err)
+    }
+}
 
 // server
 #[derive(Clone)]
@@ -26,6 +123,35 @@ pub async fn run() -> tide::Result<()> {
     let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
 
+    srv.with(After(|mut r: tide::Response| async {
+        if let Some(err) = r.downcast_error::<ServerError>() {
+            println!("ERROR: {:?}", err);
+            match err {
+                ServerError::InvalidLogin => {
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::Unauthorized,
+                        description: Some(format!("{}", err)),
+                        severity: Severity::Error,
+                    };
+                    r.set_status(403);
+                    r.set_body(json!(ep));
+                }
+                ServerError::NoAuthorizedScopes => {
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::Unauthorized,
+                        description: Some(format!("{}", err)),
+                        severity: Severity::Error,
+                    };
+                    r.set_status(403);
+                    r.set_body(json!(ep));
+                }
+                _ => println!("hi"),
+            }
+        };
+        Ok(r)
+    }));
     log::info!("ready on: {}", url_port);
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
@@ -67,15 +193,8 @@ pub struct Creds {
 async fn login(mut req: tide::Request<State>) -> tide::Result {
     let creds: Creds = req.body_form().await?;
     log::info!("login attempt from: {}", creds.client_id);
-    let compare = db::get_api_creds(&creds.client_id, &req.state().db).await?;
-    let verify = bcrypt::verify(creds.client_secret, &compare.client_secret)?;
-    if verify {
-        if let Some(scopes) = auth::credentials::verify_scopes(&compare.scope, &creds.scope).await {
-            let token = auth::jwt::create_token(creds.client_id, scopes).await?;
-            return Ok(tide::Response::builder(200).body(json!(token)).build());
-        }
-    }
-    Ok(tide::Response::new(tide::StatusCode::Unauthorized))
+    let token = auth::credentials::login(creds, &req.state().db).await?;
+    Ok(tide::Response::builder(200).body(json!(token)).build())
 }
 
 async fn create_api_user(mut req: tide::Request<State>) -> tide::Result {
