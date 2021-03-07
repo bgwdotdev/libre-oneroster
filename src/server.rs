@@ -54,8 +54,13 @@ pub enum ServerError {
     Surf(surf::Error),
     Sqlx(sqlx::Error),
     Bcrypt(bcrypt::BcryptError),
+    Time(std::time::SystemTimeError),
+    Jwt(jsonwebtoken::errors::Error),
     InvalidLogin,
     NoAuthorizedScopes,
+    NoPermission,
+    NoBearerToken,
+    NoRecordDeleted,
     Unknown,
 }
 
@@ -66,8 +71,13 @@ impl fmt::Display for ServerError {
             ServerError::Surf(ref e) => e.fmt(f),
             ServerError::Sqlx(ref e) => e.fmt(f),
             ServerError::Bcrypt(ref e) => e.fmt(f),
+            ServerError::Time(ref e) => e.fmt(f),
+            ServerError::Jwt(ref e) => e.fmt(f),
             ServerError::InvalidLogin => write!(f, "Invalid username/password"),
             ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
+            ServerError::NoPermission => write!(f, "Incorrect scopes to access this resource"),
+            ServerError::NoBearerToken => write!(f, "No bearer token found"),
+            ServerError::NoRecordDeleted => write!(f, "No Record to delete"),
             ServerError::Unknown => write!(f, "Unknown error at this time"),
         }
     }
@@ -80,6 +90,8 @@ impl error::Error for ServerError {
             //ServerError::Surf(ref e) => Some(e),
             ServerError::Sqlx(ref e) => Some(e),
             ServerError::Bcrypt(ref e) => Some(e),
+            ServerError::Time(ref e) => Some(e),
+            ServerError::Jwt(ref e) => Some(e),
             _ => None,
         }
     }
@@ -94,6 +106,18 @@ impl From<sqlx::Error> for ServerError {
 impl From<bcrypt::BcryptError> for ServerError {
     fn from(err: bcrypt::BcryptError) -> ServerError {
         ServerError::Bcrypt(err)
+    }
+}
+
+impl From<std::time::SystemTimeError> for ServerError {
+    fn from(err: std::time::SystemTimeError) -> ServerError {
+        ServerError::Time(err)
+    }
+}
+
+impl From<jsonwebtoken::errors::Error> for ServerError {
+    fn from(err: jsonwebtoken::errors::Error) -> ServerError {
+        ServerError::Jwt(err)
     }
 }
 
@@ -137,7 +161,9 @@ pub async fn run() -> tide::Result<()> {
                     r.set_status(403);
                     r.set_body(json!(ep));
                 }
-                ServerError::NoAuthorizedScopes => {
+                ServerError::NoAuthorizedScopes
+                | ServerError::NoBearerToken
+                | ServerError::NoPermission => {
                     let ep = ErrorPayload {
                         code_major: CodeMajor::Failure,
                         code_minor: CodeMinor::Unauthorized,
@@ -145,6 +171,26 @@ pub async fn run() -> tide::Result<()> {
                         severity: Severity::Error,
                     };
                     r.set_status(403);
+                    r.set_body(json!(ep));
+                }
+                ServerError::Jwt(_) => {
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::Unauthorized,
+                        description: Some(format!("Invalid token")),
+                        severity: Severity::Error,
+                    };
+                    r.set_status(403);
+                    r.set_body(json!(ep));
+                }
+                ServerError::NoRecordDeleted => {
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::UnknownObject,
+                        description: Some(format!("{}", err)),
+                        severity: Severity::Error,
+                    };
+                    r.set_status(404);
                     r.set_body(json!(ep));
                 }
                 _ => println!("hi"),
@@ -205,11 +251,8 @@ async fn create_api_user(mut req: tide::Request<State>) -> tide::Result {
 
 async fn delete_api_user(req: tide::Request<State>) -> tide::Result {
     let uuid = req.param("uuid")?;
-    let res = db::delete_api_user(uuid, &req.state().db).await?;
-    if res {
-        return Ok(tide::Response::builder(200).build());
-    }
-    Ok(tide::Response::builder(404).build())
+    db::delete_api_user(uuid, &req.state().db).await?;
+    Ok(tide::Response::builder(200).build())
 }
 
 async fn get_api_users(req: tide::Request<State>) -> tide::Result {
@@ -229,17 +272,16 @@ async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
-    if let Some(token) = auth::middleware::parse_auth_header(&req).await {
-        if auth::jwt::validate_token(token).await {
-            return Ok("✔ Token valid\n".to_string());
-        }
+    let token = auth::middleware::parse_auth_header(&req).await?;
+    if auth::jwt::validate_token(token).await {
+        return Ok("✔ Token valid\n".to_string());
     }
     Ok("✗ Token invalid\n".to_string())
 }
 // tests
 #[cfg(test)]
 #[async_std::test]
-async fn db() -> sqlx::Result<()> {
+async fn db() -> Result<()> {
     let path = "sqlite:db/rust_test.db";
     db::init(path).await?;
     let pool = db::connect(path).await?;

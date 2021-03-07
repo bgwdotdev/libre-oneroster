@@ -1,5 +1,5 @@
 use crate::model;
-use crate::server::auth;
+use crate::server::{auth, Result, ServerError};
 use sqlite::SqlitePoolOptions;
 use sqlx::{migrate::MigrateDatabase, sqlite};
 use tide::prelude::*;
@@ -14,7 +14,7 @@ pub(super) struct UserList {
 pub(super) async fn get_api_creds(
     client_id: &String,
     db: &sqlx::SqlitePool,
-) -> sqlx::Result<super::Creds> {
+) -> Result<super::Creds> {
     let res = sqlx::query_as!(
         super::Creds,
         r#"
@@ -43,7 +43,7 @@ pub(super) async fn get_api_users(
     fcol: String,
     fval: String,
     db: &sqlx::SqlitePool,
-) -> sqlx::Result<Vec<UserList>> {
+) -> Result<Vec<UserList>> {
     let rows = sqlx::query_as!(
         UserList,
         r#"
@@ -79,7 +79,7 @@ pub(super) struct CreateApiUser {
 pub(super) async fn create_api_user(
     user: CreateApiUser,
     db: &sqlx::SqlitePool,
-) -> tide::Result<super::Creds> {
+) -> Result<super::Creds> {
     let new = auth::credentials::generate_credentials().await?;
     let mut t = db.begin().await?;
     sqlx::query!(
@@ -106,27 +106,27 @@ pub(super) async fn create_api_user(
     let authscopes = get_api_creds(&new.creds.client_id, db).await?;
     let out = super::Creds {
         client_id: new.creds.client_id.clone(),
-        client_secret: new.creds.client_id.clone(),
+        client_secret: new.creds.client_secret.clone(),
         scope: authscopes.scope,
     };
     Ok(out)
 }
 
-pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> sqlx::Result<bool> {
+pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> Result<()> {
     let deleted = sqlx::query!("DELETE FROM credentials WHERE client_id = ?", uuid)
         .execute(db)
         .await?
         .rows_affected();
 
     if deleted > 0 {
-        return Ok(true);
+        return Ok(());
     }
-    Ok(false)
+    Err(ServerError::NoRecordDeleted)
 }
 
 pub(crate) async fn get_all_academic_sessions(
     db: &sqlx::SqlitePool,
-) -> sqlx::Result<Vec<model::AcademicSession>> {
+) -> Result<Vec<model::AcademicSession>> {
     let rows = sqlx::query!("SELECT json(data) as data FROM academicSessions")
         .fetch_all(db)
         .await?;
@@ -143,7 +143,7 @@ pub(crate) async fn get_all_academic_sessions(
 pub(crate) async fn put_academic_sessions(
     data: Vec<model::AcademicSession>,
     db: &sqlx::SqlitePool,
-) -> sqlx::Result<()> {
+) -> Result<()> {
     let mut t = db.begin().await?;
     for i in data.iter() {
         let json = json!(i).to_string();
@@ -162,7 +162,7 @@ pub(crate) async fn put_academic_sessions(
     Ok(())
 }
 
-pub(super) async fn init(path: &str) -> sqlx::Result<()> {
+pub(super) async fn init(path: &str) -> Result<()> {
     log::info!("seeking database...");
     let exist = sqlx::Sqlite::database_exists(path).await?;
     if exist {
@@ -174,7 +174,7 @@ pub(super) async fn init(path: &str) -> sqlx::Result<()> {
     Ok(())
 }
 
-pub(super) async fn init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
+pub(super) async fn init_schema(pool: &sqlx::SqlitePool) -> Result<()> {
     let mut t = pool.begin().await?;
     sqlx::query_file!("db/schema.sql").execute(&mut t).await?;
     sqlx::query_file!("db/init.sql").execute(&mut t).await?;
@@ -182,10 +182,11 @@ pub(super) async fn init_schema(pool: &sqlx::SqlitePool) -> sqlx::Result<()> {
     Ok(())
 }
 
-pub(super) async fn connect(path: &str) -> sqlx::Result<sqlx::Pool<sqlx::Sqlite>> {
+pub(super) async fn connect(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
     log::info!("connecting to database...");
-    return SqlitePoolOptions::new()
+    let pool = SqlitePoolOptions::new()
         .max_connections(1)
         .connect(path)
-        .await;
+        .await?;
+    Ok(pool)
 }
