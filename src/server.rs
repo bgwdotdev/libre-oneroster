@@ -1,12 +1,15 @@
 mod auth;
 mod db;
+mod errors;
 
 use crate::model;
-use bcrypt;
+use errors::*;
 use tide::prelude::*;
+use tide::utils::After;
 use tide::Request;
 
-// server
+type Result<T> = std::result::Result<T, ServerError>;
+
 #[derive(Clone)]
 pub(crate) struct State {
     db: sqlx::SqlitePool,
@@ -18,14 +21,19 @@ pub async fn run() -> tide::Result<()> {
     log::info!("starting server: {}", hello);
 
     let path = "sqlite:db/oneroster.db";
-    db::init(path).await?;
-    let pool = db::connect(path).await?;
-    db::init_schema(&pool).await?;
+    let pool = match db::init(path).await {
+        Ok(pool) => pool,
+        Err(e) => {
+            log::error!("Error: could not start server: {}", e);
+            return Ok(());
+        }
+    };
 
     let state = State { db: pool };
     let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
 
+    srv.with(After(errors::middleware::ApiError::new()));
     log::info!("ready on: {}", url_port);
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
@@ -55,7 +63,6 @@ pub async fn run() -> tide::Result<()> {
     Ok(())
 }
 
-// auth
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Creds {
@@ -67,15 +74,8 @@ pub struct Creds {
 async fn login(mut req: tide::Request<State>) -> tide::Result {
     let creds: Creds = req.body_form().await?;
     log::info!("login attempt from: {}", creds.client_id);
-    let compare = db::get_api_creds(&creds.client_id, &req.state().db).await?;
-    let verify = bcrypt::verify(creds.client_secret, &compare.client_secret)?;
-    if verify {
-        if let Some(scopes) = auth::credentials::verify_scopes(&compare.scope, &creds.scope).await {
-            let token = auth::jwt::create_token(creds.client_id, scopes).await?;
-            return Ok(tide::Response::builder(200).body(json!(token)).build());
-        }
-    }
-    Ok(tide::Response::new(tide::StatusCode::Unauthorized))
+    let token = auth::credentials::login(creds, &req.state().db).await?;
+    Ok(tide::Response::builder(200).body(json!(token)).build())
 }
 
 async fn create_api_user(mut req: tide::Request<State>) -> tide::Result {
@@ -86,11 +86,8 @@ async fn create_api_user(mut req: tide::Request<State>) -> tide::Result {
 
 async fn delete_api_user(req: tide::Request<State>) -> tide::Result {
     let uuid = req.param("uuid")?;
-    let res = db::delete_api_user(uuid, &req.state().db).await?;
-    if res {
-        return Ok(tide::Response::builder(200).build());
-    }
-    Ok(tide::Response::builder(404).build())
+    db::delete_api_user(uuid, &req.state().db).await?;
+    Ok(tide::Response::builder(200).build())
 }
 
 async fn get_api_users(req: tide::Request<State>) -> tide::Result {
@@ -110,17 +107,17 @@ async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
-    if let Some(token) = auth::middleware::parse_auth_header(&req).await {
-        if auth::jwt::validate_token(token).await {
-            return Ok("✔ Token valid\n".to_string());
-        }
+    let token = auth::middleware::parse_auth_header(&req).await?;
+    if auth::jwt::validate_token(token).await {
+        return Ok("✔ Token valid\n".to_string());
     }
     Ok("✗ Token invalid\n".to_string())
 }
+
 // tests
 #[cfg(test)]
 #[async_std::test]
-async fn db() -> sqlx::Result<()> {
+async fn db() -> Result<()> {
     let path = "sqlite:db/rust_test.db";
     db::init(path).await?;
     let pool = db::connect(path).await?;

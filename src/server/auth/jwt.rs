@@ -1,3 +1,4 @@
+use crate::server::Result;
 use jsonwebtoken;
 use std::time::SystemTime;
 use tide::prelude::*;
@@ -39,8 +40,7 @@ pub(crate) struct TokenReturn {
     scope: String,
 }
 
-// TODO: change result type
-pub(crate) async fn create_token(id: String, scope: String) -> tide::Result<TokenReturn> {
+pub(crate) async fn create_token(id: String, scope: String) -> Result<TokenReturn> {
     let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
     let exp_in: u64 = 3600;
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
@@ -62,9 +62,7 @@ pub(crate) async fn create_token(id: String, scope: String) -> tide::Result<Toke
     Ok(result)
 }
 
-pub(crate) async fn decode_token(
-    token: String,
-) -> jsonwebtoken::errors::Result<jsonwebtoken::TokenData<Claims>> {
+pub(crate) async fn decode_token(token: String) -> Result<jsonwebtoken::TokenData<Claims>> {
     let val = jsonwebtoken::Validation {
         algorithms: vec![jsonwebtoken::Algorithm::RS256],
         ..Default::default()
