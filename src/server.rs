@@ -33,48 +33,7 @@ pub async fn run() -> tide::Result<()> {
     let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
 
-    srv.with(After(|mut r: tide::Response| async {
-        if let Some(err) = r.downcast_error::<ServerError>() {
-            println!("ERROR: {:?}", err);
-            match err {
-                ServerError::NoAuthorizedScopes
-                | ServerError::NoBearerToken
-                | ServerError::NoPermission
-                | ServerError::InvalidLogin => {
-                    let ep = ErrorPayload {
-                        code_major: CodeMajor::Failure,
-                        code_minor: CodeMinor::Unauthorized,
-                        description: Some(format!("{}", err)),
-                        severity: Severity::Error,
-                    };
-                    r.set_status(403);
-                    r.set_body(json!(ep));
-                }
-                ServerError::Jwt(_) => {
-                    let ep = ErrorPayload {
-                        code_major: CodeMajor::Failure,
-                        code_minor: CodeMinor::Unauthorized,
-                        description: Some(format!("Invalid token")),
-                        severity: Severity::Error,
-                    };
-                    r.set_status(403);
-                    r.set_body(json!(ep));
-                }
-                ServerError::NoRecordDeleted => {
-                    let ep = ErrorPayload {
-                        code_major: CodeMajor::Failure,
-                        code_minor: CodeMinor::UnknownObject,
-                        description: Some(format!("{}", err)),
-                        severity: Severity::Error,
-                    };
-                    r.set_status(404);
-                    r.set_body(json!(ep));
-                }
-                _ => println!("hi"),
-            }
-        };
-        Ok(r)
-    }));
+    srv.with(After(errors::middleware::ApiError::new()));
     log::info!("ready on: {}", url_port);
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);

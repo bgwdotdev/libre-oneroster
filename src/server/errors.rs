@@ -1,3 +1,4 @@
+pub(crate) mod middleware;
 use bcrypt;
 use serde::{Deserialize, Serialize};
 use std::{error, fmt};
@@ -102,5 +103,6 @@ pub(crate) struct ErrorPayload {
     pub(crate) code_major: CodeMajor,
     pub(crate) severity: Severity,
     pub(crate) code_minor: CodeMinor,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) description: Option<String>,
 }
