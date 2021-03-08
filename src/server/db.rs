@@ -161,8 +161,14 @@ pub(crate) async fn put_academic_sessions(
     t.commit().await?;
     Ok(())
 }
+pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
+    init_db(path).await?;
+    let pool = connect(path).await?;
+    init_schema(&pool).await?;
+    Ok(pool)
+}
 
-pub(super) async fn init(path: &str) -> Result<()> {
+pub(super) async fn init_db(path: &str) -> Result<()> {
     log::info!("seeking database...");
     let exist = sqlx::Sqlite::database_exists(path).await?;
     if exist {

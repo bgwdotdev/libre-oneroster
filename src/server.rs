@@ -127,9 +127,13 @@ pub async fn run() -> tide::Result<()> {
     log::info!("starting server: {}", hello);
 
     let path = "sqlite:db/oneroster.db";
-    db::init(path).await?;
-    let pool = db::connect(path).await?;
-    db::init_schema(&pool).await?;
+    let pool = match db::init(path).await {
+        Ok(pool) => pool,
+        Err(e) => {
+            log::error!("Error: could not start server: {}", e);
+            return Ok(());
+        }
+    };
 
     let state = State { db: pool };
     let url_port = "localhost:8080";
