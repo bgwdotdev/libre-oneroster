@@ -1,121 +1,15 @@
 mod auth;
 mod db;
+mod errors;
 
 use crate::model;
-use bcrypt;
-use std::{error, fmt};
+use errors::*;
 use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
 
 type Result<T> = std::result::Result<T, ServerError>;
 
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum CodeMajor {
-    Success,
-    Failure,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum Severity {
-    Status,
-    Error,
-    Warning,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum CodeMinor {
-    FullSuccess,
-    UnknownObject,
-    InvalidData,
-    Unauthorized,
-    InvalidSortField,
-    InvalidFilterField,
-    InvalidSelectionField,
-    Forbidden,
-    ServerBusy,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ErrorPayload {
-    code_major: CodeMajor,
-    severity: Severity,
-    code_minor: CodeMinor,
-    description: Option<String>,
-}
-
-#[derive(Debug)]
-pub enum ServerError {
-    Sqlx(sqlx::Error),
-    Bcrypt(bcrypt::BcryptError),
-    Time(std::time::SystemTimeError),
-    Jwt(jsonwebtoken::errors::Error),
-    InvalidLogin,
-    NoAuthorizedScopes,
-    NoPermission,
-    NoBearerToken,
-    NoRecordDeleted,
-    Unknown,
-}
-
-impl fmt::Display for ServerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ServerError::Sqlx(ref e) => e.fmt(f),
-            ServerError::Bcrypt(ref e) => e.fmt(f),
-            ServerError::Time(ref e) => e.fmt(f),
-            ServerError::Jwt(ref e) => e.fmt(f),
-            ServerError::InvalidLogin => write!(f, "Invalid username/password"),
-            ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
-            ServerError::NoPermission => write!(f, "Incorrect scopes to access this resource"),
-            ServerError::NoBearerToken => write!(f, "No bearer token found"),
-            ServerError::NoRecordDeleted => write!(f, "No Record to delete"),
-            ServerError::Unknown => write!(f, "Unknown error at this time"),
-        }
-    }
-}
-
-impl error::Error for ServerError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self {
-            ServerError::Sqlx(ref e) => Some(e),
-            ServerError::Bcrypt(ref e) => Some(e),
-            ServerError::Time(ref e) => Some(e),
-            ServerError::Jwt(ref e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<sqlx::Error> for ServerError {
-    fn from(err: sqlx::Error) -> ServerError {
-        ServerError::Sqlx(err)
-    }
-}
-
-impl From<bcrypt::BcryptError> for ServerError {
-    fn from(err: bcrypt::BcryptError) -> ServerError {
-        ServerError::Bcrypt(err)
-    }
-}
-
-impl From<std::time::SystemTimeError> for ServerError {
-    fn from(err: std::time::SystemTimeError) -> ServerError {
-        ServerError::Time(err)
-    }
-}
-
-impl From<jsonwebtoken::errors::Error> for ServerError {
-    fn from(err: jsonwebtoken::errors::Error) -> ServerError {
-        ServerError::Jwt(err)
-    }
-}
-
-// server
 #[derive(Clone)]
 pub(crate) struct State {
     db: sqlx::SqlitePool,
@@ -143,19 +37,10 @@ pub async fn run() -> tide::Result<()> {
         if let Some(err) = r.downcast_error::<ServerError>() {
             println!("ERROR: {:?}", err);
             match err {
-                ServerError::InvalidLogin => {
-                    let ep = ErrorPayload {
-                        code_major: CodeMajor::Failure,
-                        code_minor: CodeMinor::Unauthorized,
-                        description: Some(format!("{}", err)),
-                        severity: Severity::Error,
-                    };
-                    r.set_status(403);
-                    r.set_body(json!(ep));
-                }
                 ServerError::NoAuthorizedScopes
                 | ServerError::NoBearerToken
-                | ServerError::NoPermission => {
+                | ServerError::NoPermission
+                | ServerError::InvalidLogin => {
                     let ep = ErrorPayload {
                         code_major: CodeMajor::Failure,
                         code_minor: CodeMinor::Unauthorized,
@@ -219,7 +104,6 @@ pub async fn run() -> tide::Result<()> {
     Ok(())
 }
 
-// auth
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Creds {
@@ -270,6 +154,7 @@ async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
     }
     Ok("✗ Token invalid\n".to_string())
 }
+
 // tests
 #[cfg(test)]
 #[async_std::test]
