@@ -25,8 +25,9 @@ pub struct AcademicSessions {
 #[serde(rename_all = "camelCase")]
 pub struct AcademicSession {
     pub sourced_id: String,
-    status: String,
-    year: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year: Option<String>,
 }
 
 /*
