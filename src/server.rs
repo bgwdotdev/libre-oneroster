@@ -1,9 +1,11 @@
 mod auth;
 mod db;
 mod errors;
+mod params;
 
 use crate::model;
 use errors::*;
+use http_types::mime;
 use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
@@ -102,8 +104,15 @@ async fn put_academic_sesions(mut req: Request<State>) -> tide::Result {
 }
 
 async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
-    let json = db::get_all_academic_sessions(&req.state().db).await?;
-    Ok(tide::Response::builder(200).body(json!(json)).build())
+    let params = req.query()?;
+    let data = db::get_all_academic_sessions(&req.state().db, &params).await?;
+    let links = params::link_header_builder(&req, &params, data.len()).await;
+    let output = params::apply_parameters(&json!(data).to_string(), &params).await?;
+    Ok(tide::Response::builder(200)
+        .header("link", links)
+        .content_type(mime::JSON)
+        .body(output)
+        .build())
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {

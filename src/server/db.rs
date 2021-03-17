@@ -126,18 +126,25 @@ pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> Result
 
 pub(crate) async fn get_all_academic_sessions(
     db: &sqlx::SqlitePool,
+    params: &crate::server::params::Parameters,
 ) -> Result<Vec<model::AcademicSession>> {
-    let rows = sqlx::query!("SELECT json(data) as data FROM academicSessions")
-        .fetch_all(db)
-        .await?;
-    let mut vs: Vec<model::AcademicSession> = Vec::new();
-    for row in rows.into_iter() {
-        if let Some(d) = row.data {
-            let v = serde_json::from_str(&d).unwrap(); // TODO: custom error handler
-            &vs.push(v);
-        }
-    }
-    Ok(vs)
+    let rows = sqlx::query_as!(
+        model::AcademicSession,
+        r#"
+        SELECT json_extract(data, '$.sourcedId') as "sourced_id!: String"
+            ,json_extract(data, '$.status') as "status!: String"
+            ,json_extract(data, '$.year') as "year?: String"
+            FROM academicSessions
+            ORDER BY sourcedId
+            LIMIT ?
+            OFFSET ?
+        "#,
+        params.limit,
+        params.offset
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(rows)
 }
 
 pub(crate) async fn put_academic_sessions(

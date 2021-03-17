@@ -19,6 +19,17 @@ And from:
 
 Backed by an json(SQLite) database.
 
+## Build 
+
+depends on libjq and libonigurama to build
+
+```bash
+#suse
+zypper install libjq-devel oniguruma-devel
+source .env
+cargo build 
+```
+
 ## Server setup
 
 ```bash
