@@ -129,7 +129,7 @@ pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> Result
 
 pub(crate) async fn get_all_academic_sessions(
     db: &sqlx::SqlitePool,
-    params: crate::server::params::Parameters,
+    params: &crate::server::params::Parameters,
 ) -> Result<Vec<model::AcademicSession>> {
     let rows = sqlx::query_as!(
         model::AcademicSession,
@@ -147,58 +147,7 @@ pub(crate) async fn get_all_academic_sessions(
     )
     .fetch_all(db)
     .await?;
-
-    // fields
-    let mut fields = Vec::new();
-    for f in params.fields.split(',') {
-        fields.push(format!("{}: .{}", f, f));
-    }
-
-    //filter
-    let rlogic = Regex::new(r" (AND|OR) ").unwrap();
-    let mut logicals: Vec<String> = Vec::new();
-    for cap in rlogic.captures_iter(&params.filter) {
-        if &cap[1] == "AND" {
-            logicals.push("and".to_string());
-        } else {
-            logicals.push("or".to_string());
-        }
-    }
-
-    let raw_filters: Vec<&str> = rlogic.split(&params.filter).collect();
-    let mut filters: Vec<String> = Vec::new();
-    for raw in raw_filters {
-        let rfilter = Regex::new(r"(\w*)(!=|>=|<=|>|<|=|~)'(.*)'").unwrap();
-        for cap in rfilter.captures_iter(raw) {
-            let mut predicate = &cap[2];
-            if predicate == "=" {
-                predicate = "==";
-            };
-            let filter = format!(".{} {} \"{}\"", &cap[1], predicate, &cap[3].trim());
-            log::debug!("filter: {}", filter);
-            filters.push(filter);
-        }
-    }
-
-    let mut filter_builder: Vec<String> = Vec::new();
-    filter_builder.push(filters.pop().unwrap());
-    for _ in 0..logicals.len() {
-        filter_builder.push(logicals.pop().unwrap());
-        filter_builder.push(filters.pop().unwrap());
-    }
-
-    // sort
-    let q = format!(
-        "[ .[] | {{ {} }} | select({}) ] | sort_by(.{})",
-        &fields.join(","),
-        &filter_builder.join(" "),
-        &params.sort
-    );
-
-    log::debug!("JQ filter: {}", q);
-    let output = jq_rs::run(&q, &json!(rows).to_string()).unwrap();
-    let o = serde_json::from_str(&output).unwrap();
-    Ok(o)
+    Ok(rows)
 }
 
 pub(crate) async fn put_academic_sessions(
