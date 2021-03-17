@@ -88,6 +88,29 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
                     r.set_status(500);
                     r.set_body(json!(ep));
                 }
+                ServerError::Regex(ref e) => {
+                    log::error!("API regex error: {}", e);
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::Forbidden, // None?
+                        description: None,
+                        severity: Severity::Error,
+                    };
+                    r.set_status(500);
+                    r.set_body(json!(ep));
+                }
+                ServerError::InvalidFilterField
+                | ServerError::InvalidParameters
+                | ServerError::InvalidBlankSelectionField => {
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::InvalidData,
+                        description: Some(format!("{}", err)),
+                        severity: Severity::Error,
+                    };
+                    r.set_status(400);
+                    r.set_body(json!(ep));
+                }
             }
         };
         Ok(r)

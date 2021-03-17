@@ -5,6 +5,7 @@ mod params;
 
 use crate::model;
 use errors::*;
+use http_types::mime;
 use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
@@ -102,42 +103,19 @@ async fn put_academic_sesions(mut req: Request<State>) -> tide::Result {
     Ok(tide::Response::builder(200).build())
 }
 
-async fn link_header_builder(
-    req: &Request<State>,
-    params: &params::Parameters,
-    data_len: usize,
-) -> String {
-    println!("{:?}", req.url());
-    let mut link = String::from("");
-    if params.limit <= data_len as u32 {
-        link = format!(
-            "<{}://{}:{}/ims/oneroster/v1p1{}?offset={}&limit={}>; rel=\"next\",",
-            req.url().scheme(),
-            req.url().domain().unwrap(),
-            req.url().port().unwrap(),
-            req.url().path(),
-            params.offset + params.limit,
-            params.limit
-        )
-    };
-    link
-}
-
 async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
-    let params = params::parse_query(&req).await?;
+    let params = req.query()?;
     let data = db::get_all_academic_sessions(&req.state().db, &params).await?;
-    let output = params::apply_parameters(&json!(data).to_string(), &params).await;
-    let json: Vec<model::AcademicSession> = serde_json::from_str(&output).unwrap(); //error missing fields if None
-    let links = link_header_builder(&req, &params, data.len()).await;
-
+    let links = params::link_header_builder(&req, &params, data.len()).await;
+    let output = params::apply_parameters(&json!(data).to_string(), &params).await?;
     Ok(tide::Response::builder(200)
         .header("link", links)
-        .body(json!(json))
+        .content_type(mime::JSON)
+        .body(output)
         .build())
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
-    params::parse_query(&req).await?;
     let token = auth::middleware::parse_auth_header(&req).await?;
     if auth::jwt::validate_token(token).await {
         return Ok("✔ Token valid\n".to_string());

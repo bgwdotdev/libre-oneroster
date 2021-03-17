@@ -1,10 +1,7 @@
 use crate::model;
 use crate::server::{auth, Result, ServerError};
-use futures::TryStreamExt;
-use jq_rs;
-use regex::Regex;
 use sqlite::SqlitePoolOptions;
-use sqlx::{migrate::MigrateDatabase, sqlite, Row};
+use sqlx::{migrate::MigrateDatabase, sqlite};
 use tide::prelude::*;
 
 #[derive(Serialize)]

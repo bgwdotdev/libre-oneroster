@@ -9,11 +9,15 @@ pub enum ServerError {
     Bcrypt(bcrypt::BcryptError),
     Time(std::time::SystemTimeError),
     Jwt(jsonwebtoken::errors::Error),
+    Regex(regex::Error),
     InvalidLogin,
     NoAuthorizedScopes,
     NoPermission,
     NoBearerToken,
     NoRecordDeleted,
+    InvalidFilterField,
+    InvalidParameters,
+    InvalidBlankSelectionField,
 }
 
 impl fmt::Display for ServerError {
@@ -23,11 +27,15 @@ impl fmt::Display for ServerError {
             ServerError::Bcrypt(ref e) => e.fmt(f),
             ServerError::Time(ref e) => e.fmt(f),
             ServerError::Jwt(ref e) => e.fmt(f),
+            ServerError::Regex(ref e) => e.fmt(f),
             ServerError::InvalidLogin => write!(f, "Invalid username/password"),
             ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
             ServerError::NoPermission => write!(f, "Incorrect scopes to access this resource"),
             ServerError::NoBearerToken => write!(f, "No bearer token found"),
             ServerError::NoRecordDeleted => write!(f, "No Record to delete"),
+            ServerError::InvalidFilterField => write!(f, "Invalid filter composition"),
+            ServerError::InvalidParameters => write!(f, "Invalid parameter composition"),
+            ServerError::InvalidBlankSelectionField => write!(f, "Invalid field composition"),
         }
     }
 }
@@ -39,6 +47,7 @@ impl error::Error for ServerError {
             ServerError::Bcrypt(ref e) => Some(e),
             ServerError::Time(ref e) => Some(e),
             ServerError::Jwt(ref e) => Some(e),
+            ServerError::Regex(ref e) => Some(e),
             _ => None,
         }
     }
@@ -65,6 +74,12 @@ impl From<std::time::SystemTimeError> for ServerError {
 impl From<jsonwebtoken::errors::Error> for ServerError {
     fn from(err: jsonwebtoken::errors::Error) -> ServerError {
         ServerError::Jwt(err)
+    }
+}
+
+impl From<regex::Error> for ServerError {
+    fn from(err: regex::Error) -> ServerError {
+        ServerError::Regex(err)
     }
 }
 

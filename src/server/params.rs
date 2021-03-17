@@ -1,7 +1,6 @@
-use super::{Result, State};
+use super::{Result, ServerError, State};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 #[serde(default)]
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,13 +24,16 @@ impl Default for Parameters {
     }
 }
 
-pub(crate) async fn apply_parameters(json: &String, params: &Parameters) -> String {
-    let q = parameter_builder(&params).await;
-    let output = jq_rs::run(&q, &json).unwrap();
-    output
+pub(crate) async fn apply_parameters(json: &String, params: &Parameters) -> Result<String> {
+    let q = parameter_builder(&params).await?;
+    let output = jq_rs::run(&q, &json).map_err(|e| {
+        log::debug!("jq error: {}: query: {}", e, q);
+        ServerError::InvalidParameters
+    })?;
+    Ok(output)
 }
 
-async fn parameter_builder(params: &Parameters) -> String {
+async fn parameter_builder(params: &Parameters) -> Result<String> {
     let mut builder = format!("[ .[] ");
 
     if let Some(fields) = parse_fields(params).await {
@@ -39,7 +41,7 @@ async fn parameter_builder(params: &Parameters) -> String {
         builder.push_str(&f);
     }
 
-    if let Some(filter) = parse_filter(params).await {
+    if let Some(filter) = parse_filter(params).await? {
         let f = format!("| select({}) ", filter);
         builder.push_str(&f);
     }
@@ -52,7 +54,7 @@ async fn parameter_builder(params: &Parameters) -> String {
     }
 
     log::debug!("parameter jq builder: {}", builder);
-    builder
+    Ok(builder)
 }
 
 async fn parse_sort(params: &Parameters) -> Option<String> {
@@ -62,9 +64,9 @@ async fn parse_sort(params: &Parameters) -> Option<String> {
     None
 }
 
-async fn parse_filter(params: &Parameters) -> Option<String> {
+async fn parse_filter(params: &Parameters) -> Result<Option<String>> {
     if let Some(q_filter) = &params.filter {
-        let rlogic = Regex::new(r" (AND|OR) ").unwrap();
+        let rlogic = Regex::new(r" (AND|OR) ")?;
         let mut logicals: Vec<String> = Vec::new();
         for cap in rlogic.captures_iter(q_filter) {
             if &cap[1] == "AND" {
@@ -77,7 +79,7 @@ async fn parse_filter(params: &Parameters) -> Option<String> {
         let raw_filters: Vec<&str> = rlogic.split(q_filter).collect();
         let mut filters: Vec<String> = Vec::new();
         for raw in raw_filters {
-            let rfilter = Regex::new(r"(\w*)(!=|>=|<=|>|<|=|~)'(.*)'").unwrap();
+            let rfilter = Regex::new(r"(\w*)(!=|>=|<=|>|<|=|~)'(.*)'")?;
             for cap in rfilter.captures_iter(raw) {
                 let mut predicate = &cap[2];
                 if predicate == "=" {
@@ -90,15 +92,15 @@ async fn parse_filter(params: &Parameters) -> Option<String> {
         }
 
         let mut filter_builder: Vec<String> = Vec::new();
-        filter_builder.push(filters.pop().unwrap());
+        filter_builder.push(filters.pop().ok_or(ServerError::InvalidFilterField)?);
         for _ in 0..logicals.len() {
-            filter_builder.push(logicals.pop().unwrap());
-            filter_builder.push(filters.pop().unwrap());
+            filter_builder.push(logicals.pop().ok_or(ServerError::InvalidFilterField)?);
+            filter_builder.push(filters.pop().ok_or(ServerError::InvalidFilterField)?);
         }
 
-        return Some(filter_builder.join(" "));
+        return Ok(Some(filter_builder.join(" ")));
     }
-    None
+    Ok(None)
 }
 
 async fn parse_fields(params: &Parameters) -> Option<String> {
@@ -116,31 +118,25 @@ async fn parse_fields(params: &Parameters) -> Option<String> {
     }
     None
 }
-pub(crate) async fn parse_query(req: &tide::Request<State>) -> Result<Parameters> {
-    //let mut params = Parameters::default();
-    let params = req.query().unwrap();
-    println!("{:?}", params);
-    Ok(params)
-}
 
-/*
-pub async fn parse_sort(
-    sort: &str,
-    mut rows: Vec<crate::model::AcademicSession>,
-) -> Result<Vec<crate::model::AcademicSession>> {
-    let mut invalid = false;
-    rows.sort_by(|a, b| match sort {
-        "sourcedId" => a.sourced_id.cmp(&b.sourced_id),
-        "status" => a.status.cmp(&b.status),
-        "year" => a.year.cmp(&b.year),
-        _ => {
-            invalid = true;
-            a.sourced_id.cmp(&b.sourced_id)
-        }
-    });
-    if invalid {
-        return Err(crate::server::ServerError::NoRecordDeleted);
-    }
-    Ok(rows)
+// TODO: review url building, issue with .path() not returning sub router prefix
+pub(super) async fn link_header_builder(
+    req: &tide::Request<State>,
+    params: &Parameters,
+    data_len: usize,
+) -> String {
+    println!("{:?}", req.url());
+    let mut link = String::from("");
+    if params.limit <= data_len as u32 {
+        link = format!(
+            "<{}://{}:{}/ims/oneroster/v1p1{}?offset={}&limit={}>; rel=\"next\",",
+            req.url().scheme(),
+            req.url().domain().unwrap_or("localhost"),
+            req.url().port().unwrap_or(443),
+            req.url().path(),
+            params.offset + params.limit,
+            params.limit
+        )
+    };
+    link
 }
-*/
