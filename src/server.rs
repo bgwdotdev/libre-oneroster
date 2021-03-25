@@ -40,6 +40,7 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
+    srv.at("/orgs").get(get_all_orgs).put(put_orgs);
 
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![
@@ -73,6 +74,15 @@ pub struct Creds {
     scope: String,
 }
 
+async fn to_vec<T>(req: &mut Request<State>) -> Result<Vec<T>>
+where
+    for<'a> T: Deserialize<'a>,
+{
+    let s = req.body_string().await.unwrap();
+    let v = serde_json::from_str(&s)?;
+    Ok(v)
+}
+
 async fn login(mut req: tide::Request<State>) -> tide::Result {
     let creds: Creds = req.body_form().await?;
     log::info!("login attempt from: {}", creds.client_id);
@@ -96,6 +106,7 @@ async fn get_api_users(req: tide::Request<State>) -> tide::Result {
     let res = db::get_api_users("1".to_string(), "1".to_string(), &req.state().db).await?;
     Ok(tide::Response::builder(200).body(json!(res)).build())
 }
+
 async fn put_academic_sesions(mut req: Request<State>) -> tide::Result {
     let j: Vec<model::AcademicSession> = req.body_json().await?;
     log::debug!("put req for: {:?}", j);
@@ -113,6 +124,21 @@ async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
         .content_type(mime::JSON)
         .body(output)
         .build())
+}
+
+async fn get_all_orgs(req: Request<State>) -> tide::Result {
+    let data = db::get_all_orgs(&req.state().db).await?;
+    Ok(tide::Response::builder(200)
+        .content_type(mime::JSON)
+        .body(json!(data).to_string())
+        .build())
+}
+
+async fn put_orgs(mut req: Request<State>) -> tide::Result {
+    let j = to_vec(&mut req).await?;
+    log::debug!("put req for: {:?}", j);
+    db::put_orgs(j, &req.state().db).await?;
+    Ok(tide::Response::builder(200).build())
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {

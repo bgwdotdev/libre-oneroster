@@ -1,5 +1,6 @@
 use crate::model;
 use crate::server::{auth, Result, ServerError};
+use model::Org;
 use sqlite::SqlitePoolOptions;
 use sqlx::{migrate::MigrateDatabase, sqlite};
 use tide::prelude::*;
@@ -168,6 +169,41 @@ pub(crate) async fn put_academic_sessions(
     t.commit().await?;
     Ok(())
 }
+
+pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org>> {
+    let rows = sqlx::query!(r#"SELECT org AS "org!: String" FROM orgs_json"#)
+        .fetch_all(db)
+        .await?;
+    let orgs: Result<Vec<Org>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.org)?))
+        .collect();
+    Ok(orgs?)
+}
+
+pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Result<()> {
+    let mut t = db.begin().await?;
+    for i in data.iter() {
+        sqlx::query!(
+            r#"
+            INSERT INTO Orgs (sourcedId, name, parent)
+            VALUES (?, ?, ?)
+            ON CONFLICT (sourcedId) DO UPDATE SET 
+                name=excluded.name,
+                parent=excluded.parent
+            "#,
+            i.sourced_id,
+            i.name,
+            i.parent,
+        )
+        .execute(&mut t)
+        .await?;
+    }
+    t.commit().await?;
+
+    Ok(())
+}
+
 pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
     init_db(path).await?;
     let pool = connect(path).await?;

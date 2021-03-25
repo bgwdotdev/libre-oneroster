@@ -25,3 +25,27 @@ CREATE TABLE IF NOT EXISTS academicSessions (
     , sourcedId text UNIQUE NOT NULL
     , data json NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS orgs (
+    id text PRIMARY KEY
+    , sourcedId text UNIQUE NOT NULL
+    , name text NOT NULL
+    , parent text
+    , FOREIGN KEY (parent) REFERENCES orgs (sourcedId)
+);
+
+CREATE VIEW IF NOT EXISTS orgs_json AS
+    SELECT json_object(
+        'sourcedId', o.sourcedId
+        , 'name', o.name
+        , 'parent', o.parent
+        , 'children', json_group_array(oc.sourcedId)
+    ) AS 'org'
+    FROM
+        orgs o
+        LEFT JOIN orgs oc ON o.sourcedId = oc.parent
+    GROUP BY
+        o.sourcedId
+    ORDER BY
+        o.sourcedId
+;

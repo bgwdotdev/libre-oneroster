@@ -17,8 +17,8 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
         request: tide::Request<server::State>,
         next: tide::Next<'_, server::State>,
     ) -> tide::Result<tide::Response> {
-        //log::trace!("{:?}", r);
         let mut r = next.run(request).await;
+        log::trace!("{:?}", r);
         if let Some(err) = r.downcast_error::<ServerError>() {
             log::warn!("API request error: {:?}", err);
             match err {
@@ -56,6 +56,7 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
                     r.set_body(json!(ep));
                 }
                 ServerError::Sqlx(ref e) => {
+                    // TODO: handle errors for FK constraints?
                     log::error!("API sql error: {}", e);
                     let ep = ErrorPayload {
                         code_major: CodeMajor::Failure,
@@ -97,6 +98,17 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
                         severity: Severity::Error,
                     };
                     r.set_status(500);
+                    r.set_body(json!(ep));
+                }
+                ServerError::Json(ref e) => {
+                    log::error!("API serde_json error: {}", e);
+                    let ep = ErrorPayload {
+                        code_major: CodeMajor::Failure,
+                        code_minor: CodeMinor::InvalidData, // None?
+                        description: Some(format!("{}", e)),
+                        severity: Severity::Error,
+                    };
+                    r.set_status(400);
                     r.set_body(json!(ep));
                 }
                 ServerError::InvalidFilterField

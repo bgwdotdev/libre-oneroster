@@ -10,6 +10,7 @@ pub enum ServerError {
     Time(std::time::SystemTimeError),
     Jwt(jsonwebtoken::errors::Error),
     Regex(regex::Error),
+    Json(serde_json::Error),
     InvalidLogin,
     NoAuthorizedScopes,
     NoPermission,
@@ -28,6 +29,7 @@ impl fmt::Display for ServerError {
             ServerError::Time(ref e) => e.fmt(f),
             ServerError::Jwt(ref e) => e.fmt(f),
             ServerError::Regex(ref e) => e.fmt(f),
+            ServerError::Json(ref e) => e.fmt(f),
             ServerError::InvalidLogin => write!(f, "Invalid username/password"),
             ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
             ServerError::NoPermission => write!(f, "Incorrect scopes to access this resource"),
@@ -48,6 +50,7 @@ impl error::Error for ServerError {
             ServerError::Time(ref e) => Some(e),
             ServerError::Jwt(ref e) => Some(e),
             ServerError::Regex(ref e) => Some(e),
+            ServerError::Json(ref e) => Some(e),
             _ => None,
         }
     }
@@ -80,6 +83,12 @@ impl From<jsonwebtoken::errors::Error> for ServerError {
 impl From<regex::Error> for ServerError {
     fn from(err: regex::Error) -> ServerError {
         ServerError::Regex(err)
+    }
+}
+
+impl From<serde_json::Error> for ServerError {
+    fn from(err: serde_json::Error) -> ServerError {
+        ServerError::Json(err)
     }
 }
 
