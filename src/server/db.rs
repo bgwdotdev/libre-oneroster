@@ -186,13 +186,19 @@ pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Re
     for i in data.iter() {
         sqlx::query!(
             r#"
-            INSERT INTO Orgs (sourcedId, name, parent)
-            VALUES (?, ?, ?)
+            INSERT INTO Orgs (sourcedId, statusTypeId, name, parent)
+            VALUES (
+                ?, 
+                ( SELECT id FROM StatusType WHERE token = ? ),
+                ?, ?
+            )
             ON CONFLICT (sourcedId) DO UPDATE SET 
+                statusTypeId=excluded.statusTypeId,
                 name=excluded.name,
                 parent=excluded.parent
             "#,
             i.sourced_id,
+            i.status,
             i.name,
             i.parent,
         )

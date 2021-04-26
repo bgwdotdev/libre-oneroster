@@ -1,3 +1,5 @@
+-- TODO: make table names UpperCamelCase
+-- TODO: make columns camelCase ?
 PRAGMA forgein_keys = 1;
 
 CREATE TABLE IF NOT EXISTS credentials (
@@ -29,14 +31,17 @@ CREATE TABLE IF NOT EXISTS academicSessions (
 CREATE TABLE IF NOT EXISTS orgs (
     id text PRIMARY KEY
     , sourcedId text UNIQUE NOT NULL
+    , statusTypeId integer NOT NULL
     , name text NOT NULL
     , parent text
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (parent) REFERENCES orgs (sourcedId)
 );
 
 CREATE VIEW IF NOT EXISTS orgs_json AS
     SELECT json_object(
         'sourcedId', o.sourcedId
+        , 'status', s.token
         , 'name', o.name
         , 'parent', o.parent
         , 'children', json_group_array(oc.sourcedId)
@@ -44,8 +49,14 @@ CREATE VIEW IF NOT EXISTS orgs_json AS
     FROM
         orgs o
         LEFT JOIN orgs oc ON o.sourcedId = oc.parent
+        LEFT JOIN StatusType s ON o.statusTypeId = s.id
     GROUP BY
         o.sourcedId
     ORDER BY
         o.sourcedId
 ;
+
+CREATE TABLE IF NOT EXISTS StatusType (
+    id integer PRIMARY KEY AUTOINCREMENT
+    , token text UNIQUE NOT NULL
+);

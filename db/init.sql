@@ -1,4 +1,3 @@
-
 INSERT
     OR IGNORE INTO scopes (
         scope)
@@ -9,4 +8,10 @@ INSERT
     , (
         'admin.readonly');
 
-
+INSERT
+    OR IGNORE INTO StatusType (
+        token)
+    VALUES (
+        'active')
+    , (
+        'tobedeleted');

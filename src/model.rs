@@ -2,6 +2,8 @@
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+// Evaluates if the first item is None in a vector
+// Used to skip serializing an empty sub item in a json struct
 fn vec_is_none<T>(v: &Option<Vec<Option<T>>>) -> bool {
     if let Some(i) = v {
         if i[0].is_none() {
@@ -43,22 +45,28 @@ pub struct AcademicSession {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Org {
     pub sourced_id: String,
+    pub status: Status,
     pub name: String,
     pub parent: Option<String>,
     #[serde(skip_serializing_if = "vec_is_none")]
     pub children: Option<Vec<Option<String>>>,
 }
 
-/*
-enum Status {
-    Active(String),
-    ToBeDeleted(String),
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+// required due to writing to db as
+// UpperCamelCase, causing serialization errors
+#[allow(non_camel_case_types)]
+pub enum Status {
+    active,
+    tobedeleted,
 }
 
+/*
 enum ClassType {
     HomeRoom,
     Scheduled,
