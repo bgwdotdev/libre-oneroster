@@ -32,24 +32,32 @@ CREATE TABLE IF NOT EXISTS orgs (
     id text PRIMARY KEY
     , sourcedId text UNIQUE NOT NULL
     , statusTypeId integer NOT NULL
+    , dateLastModified text NOT NULL
     , name text NOT NULL
+    , orgTypeId text NOT NULL
+    , identifier text
     , parent text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
+    , FOREIGN KEY (orgTypeId) REFERENCES OrgType (id)
     , FOREIGN KEY (parent) REFERENCES orgs (sourcedId)
 );
 
 CREATE VIEW IF NOT EXISTS orgs_json AS
     SELECT json_object(
         'sourcedId', o.sourcedId
-        , 'status', s.token
+        , 'status', st.token
+        , 'dateLastModified', o.dateLastModified
         , 'name', o.name
+        , 'type', ot.token
+        , 'identifier', o.identifier
         , 'parent', o.parent
-        , 'children', json_group_array(oc.sourcedId)
+        , 'children', json_group_array(op.sourcedId)
     ) AS 'org'
     FROM
         orgs o
-        LEFT JOIN orgs oc ON o.sourcedId = oc.parent
-        LEFT JOIN StatusType s ON o.statusTypeId = s.id
+        LEFT JOIN orgs op ON o.sourcedId = op.parent
+        LEFT JOIN StatusType st ON o.statusTypeId = st.id
+        LEFT JOIN OrgType ot on o.orgTypeId = ot.id
     GROUP BY
         o.sourcedId
     ORDER BY
@@ -57,6 +65,11 @@ CREATE VIEW IF NOT EXISTS orgs_json AS
 ;
 
 CREATE TABLE IF NOT EXISTS StatusType (
+    id integer PRIMARY KEY AUTOINCREMENT
+    , token text UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS OrgType (
     id integer PRIMARY KEY AUTOINCREMENT
     , token text UNIQUE NOT NULL
 );

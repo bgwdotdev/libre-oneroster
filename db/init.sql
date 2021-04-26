@@ -15,3 +15,19 @@ INSERT
         'active')
     , (
         'tobedeleted');
+
+INSERT
+    OR IGNORE INTO OrgType (
+        token)
+    VALUES (
+        'department')
+    , (
+        'school')
+    , (
+        'district')
+    , (
+        'local')
+    , (
+        'state')
+    , (
+        'national');

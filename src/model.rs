@@ -1,4 +1,4 @@
-//use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -45,12 +45,16 @@ pub struct AcademicSession {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Org {
     pub sourced_id: String,
-    pub status: Status,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
     pub name: String,
+    #[serde(rename = "type")]
+    pub org_type: OrgType,
+    pub identifier: Option<String>,
     pub parent: Option<String>,
     #[serde(skip_serializing_if = "vec_is_none")]
     pub children: Option<Vec<Option<String>>>,
@@ -61,13 +65,25 @@ pub struct Org {
 // required due to writing to db as
 // UpperCamelCase, causing serialization errors
 #[allow(non_camel_case_types)]
-pub enum Status {
+pub enum StatusType {
     active,
     tobedeleted,
 }
 
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[allow(non_camel_case_types)]
+pub enum OrgType {
+    department,
+    school,
+    district,
+    local,
+    state,
+    national,
+}
+
 /*
 enum ClassType {
+    #[allow(non_camel_case_types)]
     HomeRoom,
     Scheduled,
 }
