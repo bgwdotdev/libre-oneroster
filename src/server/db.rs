@@ -184,6 +184,7 @@ pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org
 pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Result<()> {
     let mut t = db.begin().await?;
     for i in data.iter() {
+        let parent = i.parent.as_ref().and_then(|p| Some(&p.sourced_id));
         sqlx::query!(
             r#"
             INSERT INTO Orgs (sourcedId, statusTypeId, dateLastModified, name, orgTypeId, identifier, parent)
@@ -209,7 +210,7 @@ pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Re
             i.name,
             i.org_type,
             i.identifier,
-            i.parent,
+            parent,
         )
         .execute(&mut t)
         .await?;

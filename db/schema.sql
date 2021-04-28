@@ -50,8 +50,22 @@ CREATE VIEW IF NOT EXISTS orgs_json AS
         , 'name', o.name
         , 'type', ot.token
         , 'identifier', o.identifier
-        , 'parent', o.parent
-        , 'children', json_group_array(op.sourcedId)
+        , 'parent', CASE WHEN o.parent IS NOT NULL THEN 
+            json_object(
+                'href', 'orgs/' || o.parent
+                , 'sourcedId', o.parent
+                , 'type', 'org'
+            ) ELSE NULL 
+        END
+        , 'children', CASE WHEN op.sourcedId IS NOT NULL THEN
+            json_group_array(
+                json_object(
+                    'href', 'orgs/' || op.sourcedId
+                    , 'sourcedId', op.sourcedId
+                    , 'type', 'org'
+                ) 
+            ) ELSE NULL 
+        END
     ) AS 'org'
     FROM
         orgs o

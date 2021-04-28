@@ -13,11 +13,17 @@ fn vec_is_none<T>(v: &Option<Vec<Option<T>>>) -> bool {
     false
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+// while href and ref_type are not optional
+// in the spec output, they are for the purposes
+// of ingest. Their required state is enforced by
+// the accompanying sql query
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GUIDRef {
+    pub href: Option<String>,
     pub sourced_id: String,
-    pub _type: String,
+    #[serde(rename = "type")]
+    pub ref_type: Option<GUIDType>,
 }
 
 /*
@@ -55,9 +61,8 @@ pub struct Org {
     #[serde(rename = "type")]
     pub org_type: OrgType,
     pub identifier: Option<String>,
-    pub parent: Option<String>,
-    #[serde(skip_serializing_if = "vec_is_none")]
-    pub children: Option<Vec<Option<String>>>,
+    pub parent: Option<GUIDRef>,
+    pub children: Option<Vec<GUIDRef>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
@@ -81,6 +86,25 @@ pub enum OrgType {
     national,
 }
 
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[allow(non_camel_case_types)]
+pub enum GUIDType {
+    academicSession,
+    category,
+    class,
+    course,
+    demographics,
+    enrollment,
+    gradingPeriod,
+    lineItem,
+    org,
+    resource,
+    result,
+    student,
+    teacher,
+    term,
+    user,
+}
 /*
 enum ClassType {
     #[allow(non_camel_case_types)]
