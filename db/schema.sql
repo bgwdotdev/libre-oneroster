@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS credential_scopes (
     , FOREIGN KEY (scope_id) REFERENCES scopes (id) ON DELETE CASCADE
 );
 
--- OR:4 
+-- OR:4
 
 -- OR:4.2
 CREATE TABLE IF NOT EXISTS AcademicSessions (
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS AcademicSessions (
     , "startDate" text NOT NULL
     , "endDate" text NOT NULL
     , "sessionTypeId" integer NOT NULL
-    , "parentSourcedId" integer
+    , "parentSourcedId" text
     , "schoolYear" integer -- YYYY
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (sessionTypeId) REFERENCES SessionType (id)
@@ -53,19 +53,20 @@ CREATE TABLE IF NOT EXISTS Subjects (
 
 -- OR:4.3
 CREATE TABLE IF NOT EXISTS Classes (
-    "sourcedId" text UNIQUE NOT NULL
+    "id" integer PRIMARY KEY AUTOINCREMENT
+    , "sourcedId" text UNIQUE NOT NULL
     , "statusTypeId" integer NOT NULL
     , "dateLastModified" text NOT NULL
     , "title" text NOT NULL
     , "classCode" text
     , "classTypeId" integer NOT NULL
     , "location" text
-    , "courseSourcedId" integer NOT NULL
-    , "schoolSourcedId" integer NOT NULL
-    , "termsSourcedId" integer NOT NULL
-    , "resourcesSourcedId" integer
+    , "courseSourcedId" text NOT NULL
+    , "schoolSourcedId" text NOT NULL
+    , "termsSourcedId" text NOT NULL
+    , "resourcesSourcedId" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
-    , FOREIGN KEY (classTypeId) REFERENCES ClassType (id) 
+    , FOREIGN KEY (classTypeId) REFERENCES ClassType (id)
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
     , FOREIGN KEY (schoolSourcedId) REFERENCES Orgs (sourcedId)
     , FOREIGN KEY (termsSourcedId) REFERENCES academicSessions (sourcedId)
@@ -74,7 +75,7 @@ CREATE TABLE IF NOT EXISTS Classes (
 
 CREATE TABLE IF NOT EXISTS ClassGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "classSourcedId" integer NOT NULL
+    , "classSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
     , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id)
@@ -83,8 +84,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS ClassGradeIndex ON ClassGrades (classSourcedId
 
 CREATE TABLE IF NOT EXISTS ClassSubjects (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "classSourcedId" integer NOT NULL
-    , "subjectSourcedId" integer NOT NULL
+    , "classSourcedId" text NOT NULL
+    , "subjectSourcedId" text NOT NULL
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
     , FOREIGN KEY (subjectSourcedId) REFERENCES Subjects (sourcedId)
 );
@@ -96,7 +97,7 @@ CREATE TABLE IF NOT EXISTS Periods (
     , "title" text NOT NULL
     , "periodCode" text NOT NULL
     , "description" text
-    , "orgSourcedId" integer NOT NULL
+    , "orgSourcedId" text NOT NULL
     , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
 );
 -- TODO: required?
@@ -104,8 +105,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS OrgPeriods ON Periods (orgSourcedId, sourcedId
 
 CREATE TABLE IF NOT EXISTS ClassPeriods (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "classSourcedId" integer NOT NULL
-    , "periodSourcedId" integer NOT NULL
+    , "classSourcedId" text NOT NULL
+    , "periodSourcedId" text NOT NULL
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
     , FOREIGN KEY (periodSourcedId) REFERENCES Periods (sourcedId)
 );
@@ -117,10 +118,10 @@ CREATE TABLE IF NOT EXISTS Courses (
     , "statusTypeId" integer NOT NULL
     , "dateLastModified" text NOT NULL
     , "title" text NOT NULL
-    , "schoolYearSourcedId" integer
+    , "schoolYearSourcedId" text
     , "courseCode" text
-    , "orgSourcedId" integer NOT NULL
-    , "resourcesSourcedId" integer
+    , "orgSourcedId" text NOT NULL
+    , "resourcesSourcedId" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (schoolYearSourcedId) REFERENCES AcademicSessions (sourcedId)
     , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
@@ -129,7 +130,7 @@ CREATE TABLE IF NOT EXISTS Courses (
 
 CREATE TABLE IF NOT EXISTS CourseGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "courseSourcedId" integer NOT NULL
+    , "courseSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
     , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id)
@@ -138,8 +139,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS CourseGradeIndex ON CourseGrades (courseSource
 
 CREATE TABLE IF NOT EXISTS CourseSubjects (
     "id" integer NOT NULL
-    , "courseSourcedId" integer NOT NULL
-    , "subjectSourcedId" integer NOT NULL
+    , "courseSourcedId" text NOT NULL
+    , "subjectSourcedId" text NOT NULL
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
     , FOREIGN KEY (subjectSourcedId) REFERENCES Subjects (sourcedId)
 );
@@ -149,12 +150,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS CourseSubjectIndex ON CourseSubjects (courseSo
 
 -- OR:4.6
 CREATE TABLE IF NOT EXISTS Enrollments (
-    "sourcedId" text UNIQUE NOT NULL
+    "id" integer PRIMARY KEY AUTOINCREMENT
+    , "sourcedId" text UNIQUE NOT NULL
     , "statusTypeId" integer NOT NULL
     , "dateLastModified" text NOT NULL
-    , "userSourcedId" integer NOT NULL
-    , "classSourcedId" integer NOT NULL
-    , "SchoolSourcedId" integer NOT NULL
+    , "userSourcedId" text NOT NULL
+    , "classSourcedId" text NOT NULL
+    , "SchoolSourcedId" text NOT NULL
     , "roleTypeId" integer NOT NULL
     , "primary" integer -- bool 0/1
     , "beginDate" text
@@ -183,7 +185,8 @@ CREATE TABLE IF NOT EXISTS Orgs (
 
 -- OR:4.12
 CREATE TABLE IF NOT EXISTS Users (
-    "sourcedId" text UNIQUE NOT NULL
+    "id" integer PRIMARY KEY AUTOINCREMENT
+    , "sourcedId" text UNIQUE NOT NULL
     , "statusTypeId" integer NOT NULL
     , "dateLastModified" text NOT NULL
     , "username" text NOT NULL
@@ -196,8 +199,8 @@ CREATE TABLE IF NOT EXISTS Users (
     , "email" text
     , "sms" text
     , "phone" text
-    , "agentsSourcedId" integer
-    , "orgsSourcedId" integer NOT NULL
+    , "agentsSourcedId" text
+    , "orgsSourcedId" text NOT NULL
     , "password" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (roleTypeId) REFERENCES RoleType (id)
@@ -207,7 +210,7 @@ CREATE TABLE IF NOT EXISTS Users (
 
 CREATE TABLE IF NOT EXISTS UserIds (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "userSourcedId" integer NOT NULL
+    , "userSourcedId" text NOT NULL
     , "type" text NOT NULL
     , "identifier" text NOT NULL
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
@@ -215,7 +218,7 @@ CREATE TABLE IF NOT EXISTS UserIds (
 
 CREATE TABLE IF NOT EXISTS UserGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "userSourcedId" integer NOT NULL
+    , "userSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
     , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id)
@@ -224,8 +227,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserGradesIndex ON UserGrades (userSourcedId, 
 
 CREATE TABLE IF NOT EXISTS UserAgents (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "userSourcedId" integer NOT NULL
-    , "agentUserSourcedId" integer NOT NULL
+    , "userSourcedId" text NOT NULL
+    , "agentUserSourcedId" text NOT NULL
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
     , FOREIGN KEY (agentUserSourcedId) REFERENCES Users (sourcedId)
 );
@@ -233,8 +236,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserAgentsIndex ON UserAgents (userSourcedId, 
 
 CREATE TABLE IF NOT EXISTS UserOrgs (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "userSourcedId" integer NOT NULL
-    , "orgSourcedId" integer NOT NULL
+    , "userSourcedId" text NOT NULL
+    , "orgSourcedId" text NOT NULL
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
     , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
 );
@@ -317,7 +320,7 @@ CREATE VIEW IF NOT EXISTS AcademicSessionsJson AS
         END
         , 'schoolYear', a.schoolYear
     ) AS 'academicSession'
-    FROM 
+    FROM
         AcademicSessions a
         LEFT JOIN AcademicSessions ap ON a.sourcedId = ap.parentSourcedId
         LEFT JOIN StatusType ON a.statusTypeId = StatusType.id
@@ -344,7 +347,7 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
             'href', 'courses/' || c.courseSourcedId
             , 'sourcedId', c.courseSourcedId
             , 'type', 'course'
-        ) 
+        )
         , 'school', json_object(
             'href', 'orgs/' || c.schoolSourcedId
             , 'sourcedId', c.schoolSourcedId
@@ -398,7 +401,7 @@ CREATE VIEW IF NOT EXISTS CoursesJson AS
         )
         , 'subjectCodes', json_group_array(Subject.subjectCode)
         -- TODO: resources
-    ) AS 'course' 
+    ) AS 'course'
     FROM
         Courses
         LEFT JOIN StatusType ON Courses.statusTypeId = StatusType.id
@@ -450,40 +453,40 @@ CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
 
 -- TODO: update styling
 -- OR:5.8
-CREATE VIEW IF NOT EXISTS orgs_json AS
+CREATE VIEW IF NOT EXISTS OrgsJson AS
     SELECT json_object(
-        'sourcedId', o.sourcedId
-        , 'status', st.token
-        , 'dateLastModified', o.dateLastModified
-        , 'name', o.name
-        , 'type', ot.token
-        , 'identifier', o.identifier
-        , 'parent', CASE WHEN o.parent IS NOT NULL THEN 
+        'sourcedId', Orgs.sourcedId
+        , 'status', StatusType.token
+        , 'dateLastModified', Orgs.dateLastModified
+        , 'name', Orgs.name
+        , 'type', OrgType.token
+        , 'identifier', Orgs.identifier
+        , 'parent', CASE WHEN Orgs.parentSourcedId IS NOT NULL THEN
             json_object(
-                'href', 'orgs/' || o.parent
-                , 'sourcedId', o.parent
+                'href', 'orgs/' || Orgs.parentSourcedId
+                , 'sourcedId', Orgs.parentSourcedId
                 , 'type', 'org'
-            ) ELSE NULL 
+            ) ELSE NULL
         END
-        , 'children', CASE WHEN op.sourcedId IS NOT NULL THEN
+        , 'children', CASE WHEN OrgParent.sourcedId IS NOT NULL THEN
             json_group_array(
                 json_object(
-                    'href', 'orgs/' || op.sourcedId
-                    , 'sourcedId', op.sourcedId
+                    'href', 'orgs/' || OrgParent.sourcedId
+                    , 'sourcedId', OrgParent.sourcedId
                     , 'type', 'org'
-                ) 
-            ) ELSE NULL 
+                )
+            ) ELSE NULL
         END
     ) AS 'org'
     FROM
-        orgs o
-        LEFT JOIN orgs op ON o.sourcedId = op.parent
-        LEFT JOIN StatusType st ON o.statusTypeId = st.id
-        LEFT JOIN OrgType ot on o.orgTypeId = ot.id
+        Orgs
+        LEFT JOIN Orgs OrgParent ON Orgs.sourcedId = OrgParent.parentSourcedId
+        LEFT JOIN StatusType ON Orgs.statusTypeId = StatusType.id
+        LEFT JOIN OrgType ON Orgs.orgTypeId = OrgType.id
     GROUP BY
-        o.sourcedId
+        Orgs.sourcedId
     ORDER BY
-        o.sourcedId
+        Orgs.sourcedId
 ;
 
 -- OR 5.11
