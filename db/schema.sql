@@ -539,3 +539,71 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
     ORDER BY
         Users.sourcedId
 ;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertAcademicSessionsJson
+    INSTEAD OF INSERT ON AcademicSessionsJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO AcademicSessions (sourcedId
+        , statusTypeId
+        , dateLastModified
+        , title
+        , startDate
+        , endDate
+        , sessionTypeId
+        , parentSourcedId
+        , schoolYear
+    )
+    VALUES (
+        json_extract(NEW.academicSession, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW.academicSession, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.academicSession, '$.dateLastModified'))
+        , json_extract(NEW.academicSession, '$.title')
+        , json_extract(NEW.academicSession, '$.startDate')
+        , json_extract(NEW.academicSession, '$.endDate')
+        , (SELECT id FROM SessionType WHERE token = json_extract(NEW.academicSession, '$.type'))
+        , json_extract(NEW.academicSession, '$.parent.sourcedId')
+        , json_extract(NEW.academicSession, '$.schoolYear')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , title=excluded.title
+        , startDate=excluded.startDate
+        , endDate=excluded.endDate
+        , sessionTypeId=excluded.sessionTypeId
+        , parentSourcedId=excluded.parentSourcedId
+        , schoolYear=excluded.schoolYear
+    ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertOrgsJson
+    INSTEAD OF INSERT ON OrgsJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Orgs (sourcedId
+    , statusTypeId
+    , dateLastModified
+    , name
+    , orgTypeId
+    , identifier
+    , parentSourcedId
+    )
+    VALUES (
+        json_extract(NEW.org, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW.org, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.org, '$.dateLastModified'))
+        , json_extract(NEW.org, '$.name')
+        , ( SELECT id FROM OrgType WHERE token = json_extract(NEW.org, '$.type') )
+        , json_extract(NEW.org, '$.identifier')
+        , json_extract(NEW.org, '$.parent.sourcedId')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , name=excluded.name
+        , orgTypeId=excluded.orgTypeId
+        , identifier=excluded.identifier
+        , parentSourcedId=excluded.parentSourcedId
+    ;
+END;

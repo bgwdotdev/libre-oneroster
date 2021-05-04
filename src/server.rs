@@ -17,6 +17,25 @@ pub(crate) struct State {
     db: sqlx::SqlitePool,
 }
 
+macro_rules! create_get_endpoint {
+    ($i:ident) => {
+        async fn $i(req: Request<State>) -> tide::Result {
+            let params = req.query()?;
+            let data = db::$i(&req.state().db).await?;
+            let links = params::link_header_builder(&req, &params, data.len()).await;
+            let output = params::apply_parameters(&json!(data).to_string(), &params).await?;
+            Ok(tide::Response::builder(200)
+                .header("link", links)
+                .content_type(mime::JSON)
+                .body(output)
+                .build())
+        }
+    };
+}
+
+create_get_endpoint!(get_all_academic_sessions);
+create_get_endpoint!(get_all_orgs);
+
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
     let hello = "hello";
@@ -41,6 +60,10 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
     srv.at("/orgs").get(get_all_orgs).put(put_orgs);
+    // test
+    srv.at("/academicSessions")
+        .get(get_all_academic_sessions)
+        .put(put_academic_sesions);
 
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![
@@ -50,9 +73,11 @@ pub async fn run() -> tide::Result<()> {
     authsrv
         .at("/")
         .get(|_| async { Ok("hello protected world\n") });
+    /*
     authsrv
         .at("/academicSessions")
         .get(get_all_academic_sessions);
+    */
     authsrv.at("/academicSessions").put(put_academic_sesions);
     let mut adminsrv = tide::with_state(srv.state().clone());
     adminsrv.with(auth::middleware::Jwt::new(vec!["admin".to_string()]));
@@ -108,30 +133,10 @@ async fn get_api_users(req: tide::Request<State>) -> tide::Result {
 }
 
 async fn put_academic_sesions(mut req: Request<State>) -> tide::Result {
-    let j: Vec<model::AcademicSession> = req.body_json().await?;
+    let j = to_vec(&mut req).await?;
     log::debug!("put req for: {:?}", j);
     db::put_academic_sessions(j, &req.state().db).await?;
     Ok(tide::Response::builder(200).build())
-}
-
-async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
-    let params = req.query()?;
-    let data = db::get_all_academic_sessions(&req.state().db, &params).await?;
-    let links = params::link_header_builder(&req, &params, data.len()).await;
-    let output = params::apply_parameters(&json!(data).to_string(), &params).await?;
-    Ok(tide::Response::builder(200)
-        .header("link", links)
-        .content_type(mime::JSON)
-        .body(output)
-        .build())
-}
-
-async fn get_all_orgs(req: Request<State>) -> tide::Result {
-    let data = db::get_all_orgs(&req.state().db).await?;
-    Ok(tide::Response::builder(200)
-        .content_type(mime::JSON)
-        .body(json!(data).to_string())
-        .build())
 }
 
 async fn put_orgs(mut req: Request<State>) -> tide::Result {

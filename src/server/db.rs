@@ -127,25 +127,17 @@ pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> Result
 
 pub(crate) async fn get_all_academic_sessions(
     db: &sqlx::SqlitePool,
-    params: &crate::server::params::Parameters,
 ) -> Result<Vec<model::AcademicSession>> {
-    let rows = sqlx::query_as!(
-        model::AcademicSession,
-        r#"
-        SELECT json_extract(data, '$.sourcedId') as "sourced_id!: String"
-            ,json_extract(data, '$.status') as "status!: String"
-            ,json_extract(data, '$.year') as "year?: String"
-            FROM academicSessions
-            ORDER BY sourcedId
-            LIMIT ?
-            OFFSET ?
-        "#,
-        params.limit,
-        params.offset
+    let rows = sqlx::query!(
+        r#"SELECT academicSession AS "academicSession!: String" FROM AcademicSessionsJson"#
     )
     .fetch_all(db)
     .await?;
-    Ok(rows)
+    let ac: Result<Vec<model::AcademicSession>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.academicSession)?))
+        .collect();
+    Ok(ac?)
 }
 
 pub(crate) async fn put_academic_sessions(
@@ -154,14 +146,10 @@ pub(crate) async fn put_academic_sessions(
 ) -> Result<()> {
     let mut t = db.begin().await?;
     for i in data.iter() {
-        let json = json!(i).to_string();
+        let j = serde_json::to_string(i)?;
         sqlx::query!(
-            r#"INSERT INTO academicSessions(sourcedId, data)
-            VALUES(?, json(?))
-            ON CONFLICT(sourcedId)
-            DO UPDATE SET sourcedId=excluded.sourcedId, data=excluded.data"#,
-            i.sourced_id,
-            json,
+            r#"INSERT INTO AcademicSessionsJson(academicSession) VALUES (json(?))"#,
+            j
         )
         .execute(&mut t)
         .await?;
@@ -171,7 +159,7 @@ pub(crate) async fn put_academic_sessions(
 }
 
 pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org>> {
-    let rows = sqlx::query!(r#"SELECT org AS "org!: String" FROM orgs_json"#)
+    let rows = sqlx::query!(r#"SELECT org AS "org!: String" FROM OrgsJson"#)
         .fetch_all(db)
         .await?;
     let orgs: Result<Vec<Org>> = rows
@@ -184,36 +172,10 @@ pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org
 pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Result<()> {
     let mut t = db.begin().await?;
     for i in data.iter() {
-        let parent = i.parent.as_ref().and_then(|p| Some(&p.sourced_id));
-        sqlx::query!(
-            r#"
-            INSERT INTO Orgs (sourcedId, statusTypeId, dateLastModified, name, orgTypeId, identifier, parent)
-            VALUES (
-                ?, 
-                ( SELECT id FROM StatusType WHERE token = ? ),
-                strftime('%Y-%m-%dT%H:%M:%fZ', ?),
-                ?,
-                ( SELECT id FROM OrgType WHERE token = ? ),
-                ?,
-                ?
-            )
-            ON CONFLICT (sourcedId) DO UPDATE SET 
-                statusTypeId=excluded.statusTypeId,
-                dateLastModified=excluded.dateLastModified,
-                name=excluded.name,
-                orgTypeId=excluded.orgTypeId,
-                parent=excluded.parent
-            "#,
-            i.sourced_id,
-            i.status,
-            i.date_last_modified,
-            i.name,
-            i.org_type,
-            i.identifier,
-            parent,
-        )
-        .execute(&mut t)
-        .await?;
+        let j = serde_json::to_string(i)?;
+        sqlx::query!(r#"INSERT INTO OrgsJson(org) VALUES (json(?))"#, j)
+            .execute(&mut t)
+            .await?;
     }
     t.commit().await?;
 

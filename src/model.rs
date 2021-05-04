@@ -26,28 +26,21 @@ pub struct GUIDRef {
     pub ref_type: Option<GUIDType>,
 }
 
-/*
-pub struct AcademicSessions {
-    sourced_id: String,
-    status: String,
-    date_last_modified: DateTime<Utc>,
-    title: String,
-    start_date: DateTime<Utc>,
-    end_date: DateTime<Utc>,
-    _type: SessionType, //review name
-    parent: GUIDRef,
-    children: Vec<GUIDRef>,
-    school_year: String,
-}
-*/
-
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[skip_serializing_none]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AcademicSession {
     pub sourced_id: String,
-    pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub year: Option<String>,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub title: String,
+    pub start_date: DateTime<Utc>,
+    pub end_date: DateTime<Utc>,
+    #[serde(rename = "type")]
+    pub academic_session_type: SessionType,
+    pub parent: Option<GUIDRef>,
+    pub children: Option<Vec<GUIDRef>>,
+    pub school_year: i32,
 }
 
 #[skip_serializing_none]
@@ -84,6 +77,15 @@ pub enum OrgType {
     local,
     state,
     national,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[allow(non_camel_case_types)]
+pub enum SessionType {
+    gradingPeriod,
+    semester,
+    schoolYear,
+    term,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
