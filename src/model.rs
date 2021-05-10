@@ -58,6 +58,38 @@ pub struct Org {
     pub children: Option<Vec<GUIDRef>>,
 }
 
+#[skip_serializing_none]
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct User {
+    pub sourced_id: String,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub username: String,
+    pub user_ids: Option<Vec<UserId>>,
+    pub enabled_user: i8,
+    pub given_name: String,
+    pub family_name: String,
+    pub middle_name: Option<String>,
+    pub role: RoleType,
+    pub identifier: Option<String>,
+    pub email: Option<String>,
+    pub sms: Option<String>,
+    pub phone: Option<String>,
+    pub agents: Option<Vec<GUIDRef>>,
+    pub orgs: Option<Vec<GUIDRef>>,
+    pub grades: Option<Vec<String>>,
+    pub password: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct UserId {
+    #[serde(rename = "type")]
+    pub id_type: String,
+    pub identifier: String,
+}
+
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
 // required due to writing to db as
@@ -86,6 +118,19 @@ pub enum SessionType {
     semester,
     schoolYear,
     term,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[allow(non_camel_case_types)]
+pub enum RoleType {
+    administrator,
+    aide,
+    guardian,
+    parent,
+    proctor,
+    relative,
+    student,
+    teacher,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]

@@ -35,6 +35,7 @@ macro_rules! create_get_endpoint {
 
 create_get_endpoint!(get_all_academic_sessions);
 create_get_endpoint!(get_all_orgs);
+create_get_endpoint!(get_all_users);
 
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
@@ -64,6 +65,7 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/academicSessions")
         .get(get_all_academic_sessions)
         .put(put_academic_sesions);
+    srv.at("/users").get(get_all_users).put(put_users);
 
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![
@@ -143,6 +145,13 @@ async fn put_orgs(mut req: Request<State>) -> tide::Result {
     let j = to_vec(&mut req).await?;
     log::debug!("put req for: {:?}", j);
     db::put_orgs(j, &req.state().db).await?;
+    Ok(tide::Response::builder(200).build())
+}
+
+async fn put_users(mut req: Request<State>) -> tide::Result {
+    let j = to_vec(&mut req).await?;
+    log::debug!("put req for: {:?}", j);
+    db::put_users(j, &req.state().db).await?;
     Ok(tide::Response::builder(200).build())
 }
 

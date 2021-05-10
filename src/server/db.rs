@@ -182,6 +182,30 @@ pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Re
     Ok(())
 }
 
+pub(super) async fn get_all_users(db: &sqlx::SqlitePool) -> Result<Vec<model::User>> {
+    let rows = sqlx::query!(r#"SELECT user AS "user!: String" FROM UsersJson"#)
+        .fetch_all(db)
+        .await?;
+    let users: Result<Vec<model::User>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.user)?))
+        .collect();
+    Ok(users?)
+}
+
+pub(super) async fn put_users(data: Vec<model::User>, db: &sqlx::SqlitePool) -> Result<()> {
+    let mut t = db.begin().await?;
+    for i in data.iter() {
+        let j = serde_json::to_string(i)?;
+        sqlx::query!(r#"INSERT INTO UsersJson(user) VALUES (json(?))"#, j)
+            .execute(&mut t)
+            .await?;
+    }
+    t.commit().await?;
+
+    Ok(())
+}
+
 pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
     init_db(path).await?;
     let pool = connect(path).await?;

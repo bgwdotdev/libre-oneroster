@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS Users (
     , "statusTypeId" integer NOT NULL
     , "dateLastModified" text NOT NULL
     , "username" text NOT NULL
-    , "enabledUser" integer NOT NULL -- bool
+    , "enabledUser" boolean NOT NULL -- bool
     , "givenName" text NOT NULL
     , "familyName" text NOT NULL
     , "middleName" text
@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS UserIds (
     , "identifier" text NOT NULL
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
 );
-CREATE UNIQUE INDEX IF NOT EXISTS UserIdsIndex ON UserIds ("userSourcedId", "type", "identifier");
+CREATE UNIQUE INDEX IF NOT EXISTS UserIdsIndex ON UserIds ("userSourcedId", "type");
 
 CREATE TABLE IF NOT EXISTS UserGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
@@ -493,11 +493,7 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
         , 'status', StatusType.token
         , 'dateLastModified', Users.dateLastModified
         , 'username', Users.username
-        , 'UserIds', CASE WHEN UserIds.userSourcedId IS NOT NULL THEN
-            json_group_array( json_object(
-                'type', UserIds."type"
-                , 'identifier', UserIds.identifier
-            )) ELSE NULL END
+        , 'userIds', json(UI.userIds)
         , 'enabledUser', Users.enabledUser
         , 'givenName', Users.givenName
         , 'familyName', Users.familyName
@@ -513,22 +509,38 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
                     , 'sourcedId', UserAgents.agentUserSourcedId
                     , 'type', 'user'
             )) ELSE NULL END
-        , 'orgs', CASE WHEN UserOrgs.userSourcedId IS NOT NULL THEN
-            json_group_array( json_object(
-                    'href', 'orgs/' || UserOrgs.orgSourcedId
-                    , 'sourcedId', UserOrgs.orgSourcedId
-                    , 'type', 'org'
-            )) ELSE NULL END
-        , 'grades', json_group_array(GradeType.token)
+        , 'orgs', json(UO.orgs)
+        , 'grades', CASE WHEN UserGrades.userSourcedId IS NOT NULL THEN
+            json_group_array(GradeType.token)
+        ELSE NULL END
         , 'password', Users.password
     ) AS 'user'
     FROM
         Users
         LEFT JOIN StatusType ON Users.statusTypeId = StatusType.id
-        LEFT JOIN UserIds ON Users.sourcedId = UserIds.userSourcedId
+        LEFT JOIN (
+            SELECT
+                userSourcedId
+                , json_group_array(json_object(
+                    'type', "type"
+                    , 'identifier', identifier
+                )) AS userIds
+            FROM UserIds
+            GROUP BY userSourcedId
+        ) AS UI ON Users.sourcedId = UI.userSourcedId
         LEFT JOIN RoleType ON Users.roleTypeId = RoleType.id
         LEFT JOIN UserAgents ON Users.sourcedId = UserAgents.userSourcedId
-        LEFT JOIN UserOrgs ON Users.sourcedId = UserOrgs.userSourcedId
+        LEFT JOIN (
+            SELECT
+                userSourcedId
+                , json_group_array(json_object(
+                        'href', 'orgs/' || UserOrgs.orgSourcedId
+                        , 'sourcedId', UserOrgs.orgSourcedId
+                        , 'type', 'user'
+                    )) AS orgs
+                FROM UserOrgs
+                GROUP BY userSourcedId
+            ) AS UO ON Users.SourcedId = UO.userSourcedId
         LEFT JOIN UserGrades ON Users.sourcedId = UserGrades.userSourcedId
         LEFT JOIN GradeType ON UserGrades.gradeTypeId = GradeType.id
     GROUP BY
@@ -668,7 +680,7 @@ BEGIN
         json_extract(NEW."user", '$.sourcedId')
         , json_extract(userIds.value, '$.type')
         , json_extract(userIds.value, '$.identifier')
-    FROM 
+    FROM
         json_each(NEW."user", '$.userIds') AS userIds
     ;
 
@@ -692,6 +704,17 @@ BEGIN
         , json_extract(agents.value, '$.sourcedId')
     FROM
         json_each(NEW."user", '$.agents') AS agents
+    ;
+
+    INSERT OR IGNORE INTO UserGrades(
+        userSourcedId
+        , gradeTypeId
+    )
+    SELECT
+        json_extract(NEW."user", '$.sourcedId')
+        , (SELECT id FROM GradeType WHERE token = grades.value)
+    FROM
+        json_each(NEW."user", '$.grades') AS grades
     ;
 
 END;
