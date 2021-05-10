@@ -199,13 +199,9 @@ CREATE TABLE IF NOT EXISTS Users (
     , "email" text
     , "sms" text
     , "phone" text
-    , "agentsSourcedId" text
-    , "orgsSourcedId" text NOT NULL
     , "password" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (roleTypeId) REFERENCES RoleType (id)
-    , FOREIGN KEY (agentsSourcedId) REFERENCES Users (sourcedId)
-    , FOREIGN KEY (orgsSourcedId) REFERENCES Orgs (sourcedId)
 );
 
 CREATE TABLE IF NOT EXISTS UserIds (
@@ -215,6 +211,7 @@ CREATE TABLE IF NOT EXISTS UserIds (
     , "identifier" text NOT NULL
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS UserIdsIndex ON UserIds ("userSourcedId", "type", "identifier");
 
 CREATE TABLE IF NOT EXISTS UserGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
@@ -606,4 +603,95 @@ BEGIN
         , identifier=excluded.identifier
         , parentSourcedId=excluded.parentSourcedId
     ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertUsersJson
+    INSTEAD OF INSERT ON UsersJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Users (sourcedId
+        , statusTypeId
+        , dateLastModified
+        , username
+        -- UserIds
+        , enabledUser
+        , givenName
+        , familyName
+        , middleName
+        , roleTypeId
+        , identifier
+        , email
+        , sms
+        , phone
+        -- UserAgents
+        -- Orgs
+        -- grades
+        , password
+    )
+    VALUES (
+        json_extract(NEW."user", '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW."user", '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW."user", '$.dateLastModified'))
+        , json_extract(NEW."user", '$.username')
+        , json_extract(NEW."user", '$.enabledUser')
+        , json_extract(NEW."user", '$.givenName')
+        , json_extract(NEW."user", '$.familyName')
+        , json_extract(NEW."user", '$.middleName')
+        , (SELECT id FROM RoleType WHERE token = json_extract(NEW."user", '$.role'))
+        , json_extract(NEW."user", '$.identifier')
+        , json_extract(NEW."user", '$.email')
+        , json_extract(NEW."user", '$.sms')
+        , json_extract(NEW."user", '$.phone')
+        , json_extract(NEW."user", '$.password')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , username=excluded.username
+        , enabledUser=excluded.enabledUser
+        , givenName=excluded.givenName
+        , familyName=excluded.familyName
+        , middleName=excluded.middleName
+        , roleTypeId=excluded.roleTypeId
+        , identifier=excluded.identifier
+        , email=excluded.email
+        , sms=excluded.sms
+        , phone=excluded.phone
+        , password=excluded.password
+    ;
+
+    INSERT OR IGNORE INTO UserIds (userSourcedId
+        , "type"
+        , identifier
+    )
+    SELECT
+        json_extract(NEW."user", '$.sourcedId')
+        , json_extract(userIds.value, '$.type')
+        , json_extract(userIds.value, '$.identifier')
+    FROM 
+        json_each(NEW."user", '$.userIds') AS userIds
+    ;
+
+    INSERT OR IGNORE INTO UserOrgs(
+        userSourcedId
+        , orgSourcedId
+    )
+    SELECT
+        json_extract(NEW."user", '$.sourcedId')
+        , json_extract(orgs.value, '$.sourcedId')
+    FROM
+        json_each(NEW."user", '$.orgs') AS orgs
+    ;
+
+    INSERT OR IGNORE INTO UserAgents(
+        userSourcedId
+        , agentUserSourcedId
+    )
+    SELECT
+        json_extract(NEW."user", '$.sourcedId')
+        , json_extract(agents.value, '$.sourcedId')
+    FROM
+        json_each(NEW."user", '$.agents') AS agents
+    ;
+
 END;
