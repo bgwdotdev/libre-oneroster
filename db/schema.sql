@@ -200,8 +200,8 @@ CREATE TABLE IF NOT EXISTS Users (
     , "sms" text
     , "phone" text
     , "password" text
-    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
-    , FOREIGN KEY (roleTypeId) REFERENCES RoleType (id)
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
+    , FOREIGN KEY (roleTypeId) REFERENCES RoleType (id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS UserIds (
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS UserIds (
     , "userSourcedId" text NOT NULL
     , "type" text NOT NULL
     , "identifier" text NOT NULL
-    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
+    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS UserIdsIndex ON UserIds ("userSourcedId", "type");
 
@@ -217,8 +217,8 @@ CREATE TABLE IF NOT EXISTS UserGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
     , "userSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
-    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
-    , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id)
+    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
+    , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS UserGradesIndex ON UserGrades (userSourcedId, gradeTypeId);
 
@@ -226,8 +226,8 @@ CREATE TABLE IF NOT EXISTS UserAgents (
     "id" integer PRIMARY KEY AUTOINCREMENT
     , "userSourcedId" text NOT NULL
     , "agentUserSourcedId" text NOT NULL
-    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
-    , FOREIGN KEY (agentUserSourcedId) REFERENCES Users (sourcedId)
+    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
+    , FOREIGN KEY (agentUserSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS UserAgentsIndex ON UserAgents (userSourcedId, agentUserSourcedId);
 
@@ -235,8 +235,8 @@ CREATE TABLE IF NOT EXISTS UserOrgs (
     "id" integer PRIMARY KEY AUTOINCREMENT
     , "userSourcedId" text NOT NULL
     , "orgSourcedId" text NOT NULL
-    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
-    , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
+    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
+    , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS UserOrgsIndex ON UserOrgs (userSourcedId, orgSourcedId);
 
