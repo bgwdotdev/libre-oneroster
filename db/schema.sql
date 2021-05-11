@@ -206,17 +206,21 @@ CREATE TABLE IF NOT EXISTS Users (
 
 CREATE TABLE IF NOT EXISTS UserIds (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL 
     , "userSourcedId" text NOT NULL
     , "type" text NOT NULL
     , "identifier" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS UserIdsIndex ON UserIds ("userSourcedId", "type");
 
 CREATE TABLE IF NOT EXISTS UserGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL 
     , "userSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
     , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id) ON DELETE RESTRICT
 );
@@ -224,8 +228,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserGradesIndex ON UserGrades (userSourcedId, 
 
 CREATE TABLE IF NOT EXISTS UserAgents (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL 
     , "userSourcedId" text NOT NULL
     , "agentUserSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
     , FOREIGN KEY (agentUserSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
 );
@@ -233,8 +239,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserAgentsIndex ON UserAgents (userSourcedId, 
 
 CREATE TABLE IF NOT EXISTS UserOrgs (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL 
     , "userSourcedId" text NOT NULL
     , "orgSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
     , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId) ON DELETE CASCADE
 );
@@ -503,12 +511,7 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
         , 'email', Users.email
         , 'sms', Users.sms
         , 'phone', Users.phone
-        , 'agents', CASE WHEN UserAgents.userSourcedId IS NOT NULL THEN
-            json_group_array( json_object(
-                    'href', 'users/' || UserAgents.agentUserSourcedId
-                    , 'sourcedId', UserAgents.agentUserSourcedId
-                    , 'type', 'user'
-            )) ELSE NULL END
+        , 'agents', json(UA.agents)
         , 'orgs', json(UO.orgs)
         , 'grades', CASE WHEN UserGrades.userSourcedId IS NOT NULL THEN
             json_group_array(GradeType.token)
@@ -526,22 +529,36 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
                     , 'identifier', identifier
                 )) AS userIds
             FROM UserIds
+            WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
             GROUP BY userSourcedId
         ) AS UI ON Users.sourcedId = UI.userSourcedId
         LEFT JOIN RoleType ON Users.roleTypeId = RoleType.id
-        LEFT JOIN UserAgents ON Users.sourcedId = UserAgents.userSourcedId
         LEFT JOIN (
             SELECT
                 userSourcedId
                 , json_group_array(json_object(
-                        'href', 'orgs/' || UserOrgs.orgSourcedId
-                        , 'sourcedId', UserOrgs.orgSourcedId
-                        , 'type', 'user'
-                    )) AS orgs
-                FROM UserOrgs
-                GROUP BY userSourcedId
-            ) AS UO ON Users.SourcedId = UO.userSourcedId
-        LEFT JOIN UserGrades ON Users.sourcedId = UserGrades.userSourcedId
+                    'href', 'users/' || UserAgents.agentUserSourcedId
+                    , 'sourcedId', UserAgents.agentUserSourcedId
+                    , 'type', 'user'
+                )) AS agents
+            FROM UserAgents
+            WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY userSourcedId
+        ) AS UA ON Users.sourcedId = UA.userSourcedId 
+        LEFT JOIN (
+            SELECT
+                userSourcedId
+                , json_group_array(json_object(
+                    'href', 'orgs/' || UserOrgs.orgSourcedId
+                    , 'sourcedId', UserOrgs.orgSourcedId
+                    , 'type', 'user'
+                )) AS orgs
+            FROM UserOrgs
+            WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY userSourcedId
+        ) AS UO ON Users.SourcedId = UO.userSourcedId
+        LEFT JOIN UserGrades ON Users.sourcedId = UserGrades.userSourcedId 
+            AND UserGrades.statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
         LEFT JOIN GradeType ON UserGrades.gradeTypeId = GradeType.id
     GROUP BY
         Users.sourcedId
@@ -672,49 +689,100 @@ BEGIN
         , password=excluded.password
     ;
 
+    -- Upserts UserIds table
+    UPDATE UserIds
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
+
     INSERT OR IGNORE INTO UserIds (userSourcedId
+        , statusTypeId
         , "type"
         , identifier
     )
     SELECT
         json_extract(NEW."user", '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
         , json_extract(userIds.value, '$.type')
         , json_extract(userIds.value, '$.identifier')
     FROM
         json_each(NEW."user", '$.userIds') AS userIds
+    WHERE true
+    ON CONFLICT (userSourcedId, "type") DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , identifier=excluded.identifier
     ;
+
+    -- Upserts UserOrgs table
+    UPDATE UserOrgs
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserOrgs(
         userSourcedId
+        , statusTypeId
         , orgSourcedId
     )
     SELECT
         json_extract(NEW."user", '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
         , json_extract(orgs.value, '$.sourcedId')
     FROM
         json_each(NEW."user", '$.orgs') AS orgs
+    WHERE true
+    ON CONFLICT (userSourcedId, orgSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
     ;
+
+    /* 
+       
+       Upserts the UserAgents table
+
+       This first sets a users User/Agent links to the 'tobedeleted' status
+       then upserts the passed items to 'active' status.
+       This avoids the need for an explicit delete command and instead assumes any
+       entities not passed are now obsolete.
+       Sets users User/Agent links to 'tobedeleted' status
+
+    */
+    UPDATE UserAgents 
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserAgents(
         userSourcedId
+        , statusTypeId
         , agentUserSourcedId
     )
     SELECT
         json_extract(NEW."user", '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
         , json_extract(agents.value, '$.sourcedId')
     FROM
         json_each(NEW."user", '$.agents') AS agents
+    WHERE true
+    ON CONFLICT (userSourcedId, agentUserSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
     ;
+
+    -- Upserts UserGrades table
+    UPDATE UserGrades
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserGrades(
         userSourcedId
+        , statusTypeId
         , gradeTypeId
     )
     SELECT
         json_extract(NEW."user", '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
         , (SELECT id FROM GradeType WHERE token = grades.value)
     FROM
         json_each(NEW."user", '$.grades') AS grades
+    WHERE true
+    ON CONFLICT (userSourcedId, gradeTypeId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
     ;
 
 END;
