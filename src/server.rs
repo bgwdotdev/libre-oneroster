@@ -37,6 +37,21 @@ create_get_endpoint!(get_all_academic_sessions);
 create_get_endpoint!(get_all_orgs);
 create_get_endpoint!(get_all_users);
 
+macro_rules! create_put_endpoint {
+    ($i:ident) => {
+        async fn $i(mut req: Request<State>) -> tide::Result {
+            let json = to_vec(&mut req).await?;
+            log::debug!("put request for: {:?}", json);
+            db::$i(json, &req.state().db).await?;
+            Ok(tide::Response::builder(200).build())
+        }
+    };
+}
+
+create_put_endpoint!(put_academic_sessions);
+create_put_endpoint!(put_orgs);
+create_put_endpoint!(put_users);
+
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
     let hello = "hello";
@@ -64,7 +79,7 @@ pub async fn run() -> tide::Result<()> {
     // test
     srv.at("/academicSessions")
         .get(get_all_academic_sessions)
-        .put(put_academic_sesions);
+        .put(put_academic_sessions);
     srv.at("/users").get(get_all_users).put(put_users);
 
     let mut authsrv = tide::with_state(srv.state().clone());
@@ -80,7 +95,7 @@ pub async fn run() -> tide::Result<()> {
         .at("/academicSessions")
         .get(get_all_academic_sessions);
     */
-    authsrv.at("/academicSessions").put(put_academic_sesions);
+    authsrv.at("/academicSessions").put(put_academic_sessions);
     let mut adminsrv = tide::with_state(srv.state().clone());
     adminsrv.with(auth::middleware::Jwt::new(vec!["admin".to_string()]));
     adminsrv.at("/users").get(get_api_users);
@@ -132,27 +147,6 @@ async fn delete_api_user(req: tide::Request<State>) -> tide::Result {
 async fn get_api_users(req: tide::Request<State>) -> tide::Result {
     let res = db::get_api_users("1".to_string(), "1".to_string(), &req.state().db).await?;
     Ok(tide::Response::builder(200).body(json!(res)).build())
-}
-
-async fn put_academic_sesions(mut req: Request<State>) -> tide::Result {
-    let j = to_vec(&mut req).await?;
-    log::debug!("put req for: {:?}", j);
-    db::put_academic_sessions(j, &req.state().db).await?;
-    Ok(tide::Response::builder(200).build())
-}
-
-async fn put_orgs(mut req: Request<State>) -> tide::Result {
-    let j = to_vec(&mut req).await?;
-    log::debug!("put req for: {:?}", j);
-    db::put_orgs(j, &req.state().db).await?;
-    Ok(tide::Response::builder(200).build())
-}
-
-async fn put_users(mut req: Request<State>) -> tide::Result {
-    let j = to_vec(&mut req).await?;
-    log::debug!("put req for: {:?}", j);
-    db::put_users(j, &req.state().db).await?;
-    Ok(tide::Response::builder(200).build())
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
