@@ -181,6 +181,29 @@ pub(super) async fn put_subjects(data: Vec<model::Subject>, db: &sqlx::SqlitePoo
     Ok(())
 }
 
+pub(super) async fn get_all_courses(db: &sqlx::SqlitePool) -> Result<Vec<model::Course>> {
+    let rows = sqlx::query!(r#"SELECT course AS "course!: String" FROM CoursesJson"#)
+        .fetch_all(db)
+        .await?;
+    let course: Result<Vec<model::Course>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.course)?))
+        .collect();
+    Ok(course?)
+}
+
+pub(super) async fn put_courses(data: Vec<model::Course>, db: &sqlx::SqlitePool) -> Result<()> {
+    let mut t = db.begin().await?;
+    for i in data.iter() {
+        let j = serde_json::to_string(i)?;
+        sqlx::query!(r#"INSERT INTO CoursesJson(course) VALUES (json(?))"#, j)
+            .execute(&mut t)
+            .await?;
+    }
+    t.commit().await?;
+    Ok(())
+}
+
 pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org>> {
     let rows = sqlx::query!(r#"SELECT org AS "org!: String" FROM OrgsJson"#)
         .fetch_all(db)

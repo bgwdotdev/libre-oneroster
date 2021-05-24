@@ -67,13 +67,11 @@ CREATE TABLE IF NOT EXISTS Classes (
     , "courseSourcedId" text NOT NULL
     , "schoolSourcedId" text NOT NULL
     , "termsSourcedId" text NOT NULL
-    , "resourcesSourcedId" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (classTypeId) REFERENCES ClassType (id)
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
     , FOREIGN KEY (schoolSourcedId) REFERENCES Orgs (sourcedId)
     , FOREIGN KEY (termsSourcedId) REFERENCES academicSessions (sourcedId)
-    , FOREIGN KEY (resourcesSourcedId) REFERENCES Resources (sourcedId)
 );
 
 CREATE TABLE IF NOT EXISTS ClassGrades (
@@ -124,17 +122,17 @@ CREATE TABLE IF NOT EXISTS Courses (
     , "schoolYearSourcedId" text
     , "courseCode" text
     , "orgSourcedId" text NOT NULL
-    , "resourcesSourcedId" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (schoolYearSourcedId) REFERENCES AcademicSessions (sourcedId)
     , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
-    , FOREIGN KEY (resourcesSourcedId) REFERENCES Resources (sourcedId)
 );
 
 CREATE TABLE IF NOT EXISTS CourseGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL
     , "courseSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
     , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id)
 );
@@ -142,8 +140,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS CourseGradeIndex ON CourseGrades (courseSource
 
 CREATE TABLE IF NOT EXISTS CourseSubjects (
     "id" integer NOT NULL
+    , "statusTypeId" integer NOT NULL
     , "courseSourcedId" text NOT NULL
     , "subjectSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
     , FOREIGN KEY (subjectSourcedId) REFERENCES Subjects (sourcedId)
 );
@@ -404,25 +404,31 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
 -- OR 5.3
 CREATE VIEW IF NOT EXISTS CoursesJson AS
     SELECT json_object(
-        'sourcedId', Courses.soucedId
+        'sourcedId', Courses.sourcedId
         , 'status', StatusType.token
         , 'dateLastModified', Courses.dateLastModified
         , 'title', Courses.title
-        , 'schoolYear', CASE WHEN Courses.schoolYear IS NOT NULL THEN
-            json_group_array( json_object (
+        , 'schoolYear', CASE WHEN Courses.schoolYearSourcedId IS NOT NULL THEN
+            json_object (
                     'href', 'academicSessions/' || Courses.schoolYearSourcedId
                     , 'sourcedId', Courses.schoolYearSourcedId
                     , 'type', 'academicSession'
-            )) ELSE NULL END
+            ) ELSE NULL END
         , 'courseCode', Courses.courseCode
-        , 'grades', json_group_array(GradeType.token)
-        , 'subjects', json_group_array(Subjects.title)
+        , 'grades', CASE WHEN CourseGrades.courseSourcedId IS NOT NULL THEN
+            json_group_array(GradeType.token)
+        ELSE NULL END
+        , 'subjects', CASE WHEN CourseSubjects.courseSourcedId IS NOT NULL THEN
+            json_group_array(Subjects.title)
+        ELSE NULL END
         , 'org', json_object(
             'href', 'orgs/' || Courses.orgSourcedId
             , 'sourcedId', Courses.orgSourcedId
             , 'type', 'org'
         )
-        , 'subjectCodes', json_group_array(Subject.subjectCode)
+        , 'subjectCodes', CASE WHEN CourseSubjects.courseSourcedId IS NOT NULL THEN 
+            json_group_array(Subjects.subjectCode)
+        ELSE NULL END
         -- TODO: resources
     ) AS 'course'
     FROM
@@ -431,11 +437,11 @@ CREATE VIEW IF NOT EXISTS CoursesJson AS
         LEFT JOIN CourseGrades ON Courses.sourcedId = CourseGrades.courseSourcedId
         LEFT JOIN GradeType ON CourseGrades.gradeTypeId = GradeType.id
         LEFT JOIN CourseSubjects ON Courses.sourcedId = CourseSubjects.courseSourcedId
-        LEFT JOIN Subjects ON CourseSubjects.subjectSourcedId = Subject.id
+        LEFT JOIN Subjects ON CourseSubjects.subjectSourcedId = Subjects.id
     GROUP BY
-        Course.sourcedId
+        Courses.sourcedId
     ORDER BY
-        Course.sourcedId
+        Courses.sourcedId
 ;
 
 -- OR 5.5
@@ -675,6 +681,78 @@ BEGIN
         , dateLastModified=excluded.dateLastModified
         , title=excluded.title
         , subjectCode=excluded.subjectCode
+    ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertCoursesJson
+    INSTEAD OF INSERT ON CoursesJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Courses(
+        sourcedId
+        , statusTypeId
+        , dateLastModified
+        , title
+        , schoolYearSourcedId
+        , courseCode
+        , orgSourcedId
+    )
+    VALUES(
+        json_extract(NEW.course, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW.course, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.course, '$.dateLastModified'))
+        , json_extract(NEW.course, '$.title')
+        , json_extract(NEW.course, '$.schoolYear.sourcedId')
+        , json_extract(NEW.course, '$.courseCode')
+        , json_extract(NEW.course, '$.org.sourcedId')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , title=excluded.title
+        , schoolYearSourcedId=excluded.schoolYearSourcedId
+        , courseCode=excluded.courseCode
+        , orgSourcedId=excluded.orgSourcedId
+    ;
+
+    UPDATE CourseGrades
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE courseSourcedId = json_extract(NEW.course, '$.sourcedId');
+
+    INSERT OR IGNORE INTO CourseGrades(
+        courseSourcedId
+        , statusTypeId
+        , gradeTypeId
+    )
+    SELECT
+        json_extract(NEW.course, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , (SELECT id FROM GradeType WHERE token = grades.value)
+    FROM
+        json_each(NEW.course, '$.grades') AS grades
+    WHERE true
+    ON CONFLICT (courseSourcedId, gradeTypeId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+    ;
+
+    UPDATE CourseSubjects
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE courseSourcedId = json_extract(NEW.course, '$.sourcedId');
+
+    INSERT OR IGNORE INTO CourseSubjects(
+        courseSourcedId
+        , statusTypeId
+        , subjectSourcedId
+    )
+    SELECT
+        json_extract(NEW.course, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , (SELECT sourcedId FROM Subjects WHERE subjectCode = sc.value)
+    FROM
+        json_each(NEW.course, '$.subjectCodes') AS sc
+    WHERE true
+    ON CONFLICT (courseSourcedId, subjectSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
     ;
 END;
 

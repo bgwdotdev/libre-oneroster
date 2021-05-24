@@ -37,6 +37,7 @@ create_get_endpoint!(get_all_academic_sessions);
 create_get_endpoint!(get_all_orgs);
 create_get_endpoint!(get_all_users);
 create_get_endpoint!(get_all_subjects);
+create_get_endpoint!(get_all_courses);
 // subject
 // course
 // class
@@ -57,6 +58,7 @@ create_put_endpoint!(put_academic_sessions);
 create_put_endpoint!(put_orgs);
 create_put_endpoint!(put_users);
 create_put_endpoint!(put_subjects);
+create_put_endpoint!(put_courses);
 
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
@@ -87,6 +89,7 @@ pub async fn run() -> tide::Result<()> {
         .get(get_all_academic_sessions)
         .put(put_academic_sessions);
     srv.at("/subjects").get(get_all_subjects).put(put_subjects);
+    srv.at("/courses").get(get_all_courses).put(put_courses);
     srv.at("/users").get(get_all_users).put(put_users);
 
     let mut authsrv = tide::with_state(srv.state().clone());

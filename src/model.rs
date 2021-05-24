@@ -57,6 +57,21 @@ pub struct Subject {
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct Course {
+    pub sourced_id: String,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub title: String,
+    pub school_year: Option<GUIDRef>,
+    pub course_code: Option<String>,
+    pub grades: Option<Vec<String>>,
+    pub subjects: Option<Vec<String>>,
+    pub org: GUIDRef,
+    pub subject_codes: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Org {
     pub sourced_id: String,
     pub status: StatusType,
