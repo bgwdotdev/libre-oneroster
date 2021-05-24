@@ -47,8 +47,11 @@ CREATE TABLE IF NOT EXISTS AcademicSessions (
 CREATE TABLE IF NOT EXISTS Subjects (
     "id" integer PRIMARY KEY AUTOINCREMENT
     , "sourcedId" text UNIQUE NOT NULL
+    , "statusTypeId" integer NOT NULL
+    , "dateLastModified" text NOT NULL
     , "title" text NOT NULL
     , "subjectCode" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
 );
 
 -- OR:4.3
@@ -334,6 +337,21 @@ CREATE VIEW IF NOT EXISTS AcademicSessionsJson AS
         a.sourcedId
     ORDER BY
         a.sourcedId
+;
+
+CREATE VIEW IF NOT EXISTS SubjectsJson AS
+    SELECT json_object(
+        'sourcedId', Subjects.sourcedId
+        , 'status', StatusType.token
+        , 'dateLastModified', Subjects.dateLastModified
+        , 'title', Subjects.title
+        , 'subjectCode', Subjects.subjectCode
+    ) AS 'subject'
+    FROM
+        Subjects
+        LEFT JOIN StatusType ON Subjects.statusTypeId = StatusType.id
+    ORDER BY
+        Subjects.sourcedId
 ;
 
 -- OR 5.2
@@ -631,6 +649,32 @@ BEGIN
         , orgTypeId=excluded.orgTypeId
         , identifier=excluded.identifier
         , parentSourcedId=excluded.parentSourcedId
+    ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertSubjectsJson
+    INSTEAD OF INSERT ON SubjectsJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Subjects(
+        sourcedId
+        , statusTypeId
+        , dateLastModified
+        , title
+        , subjectCode
+    )
+    VALUES(
+        json_extract(NEW.subject, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW.subject, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.subject, '$.dateLastModified'))
+        , json_extract(NEW.subject, '$.title')
+        , json_extract(NEW.subject, '$.subjectCode')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , title=excluded.title
+        , subjectCode=excluded.subjectCode
     ;
 END;
 

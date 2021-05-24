@@ -158,6 +158,29 @@ pub(crate) async fn put_academic_sessions(
     Ok(())
 }
 
+pub(super) async fn get_all_subjects(db: &sqlx::SqlitePool) -> Result<Vec<model::Subject>> {
+    let rows = sqlx::query!(r#"SELECT subject AS "subject!: String" FROM SubjectsJson"#)
+        .fetch_all(db)
+        .await?;
+    let subject: Result<Vec<model::Subject>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.subject)?))
+        .collect();
+    Ok(subject?)
+}
+
+pub(super) async fn put_subjects(data: Vec<model::Subject>, db: &sqlx::SqlitePool) -> Result<()> {
+    let mut t = db.begin().await?;
+    for i in data.iter() {
+        let j = serde_json::to_string(i)?;
+        sqlx::query!(r#"INSERT INTO SubjectsJson(subject) VALUES (json(?))"#, j)
+            .execute(&mut t)
+            .await?;
+    }
+    t.commit().await?;
+    Ok(())
+}
+
 pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org>> {
     let rows = sqlx::query!(r#"SELECT org AS "org!: String" FROM OrgsJson"#)
         .fetch_all(db)

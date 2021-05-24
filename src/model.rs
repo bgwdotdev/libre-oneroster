@@ -46,6 +46,17 @@ pub struct AcademicSession {
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct Subject {
+    pub sourced_id: String,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub title: String,
+    pub subject_code: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Org {
     pub sourced_id: String,
     pub status: StatusType,
