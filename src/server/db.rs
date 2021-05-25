@@ -158,6 +158,29 @@ pub(crate) async fn put_academic_sessions(
     Ok(())
 }
 
+pub(super) async fn get_all_periods(db: &sqlx::SqlitePool) -> Result<Vec<model::Period>> {
+    let rows = sqlx::query!(r#"SELECT period AS "period!: String" FROM PeriodsJson"#)
+        .fetch_all(db)
+        .await?;
+    let period: Result<Vec<model::Period>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.period)?))
+        .collect();
+    Ok(period?)
+}
+
+pub(super) async fn put_periods(data: Vec<model::Period>, db: &sqlx::SqlitePool) -> Result<()> {
+    let mut t = db.begin().await?;
+    for i in data.iter() {
+        let j = serde_json::to_string(i)?;
+        sqlx::query!(r#"INSERT INTO PeriodsJson(period) VALUES (json(?))"#, j)
+            .execute(&mut t)
+            .await?;
+    }
+    t.commit().await?;
+    Ok(())
+}
+
 pub(super) async fn get_all_subjects(db: &sqlx::SqlitePool) -> Result<Vec<model::Subject>> {
     let rows = sqlx::query!(r#"SELECT subject AS "subject!: String" FROM SubjectsJson"#)
         .fetch_all(db)
@@ -174,6 +197,29 @@ pub(super) async fn put_subjects(data: Vec<model::Subject>, db: &sqlx::SqlitePoo
     for i in data.iter() {
         let j = serde_json::to_string(i)?;
         sqlx::query!(r#"INSERT INTO SubjectsJson(subject) VALUES (json(?))"#, j)
+            .execute(&mut t)
+            .await?;
+    }
+    t.commit().await?;
+    Ok(())
+}
+
+pub(super) async fn get_all_classes(db: &sqlx::SqlitePool) -> Result<Vec<model::Class>> {
+    let rows = sqlx::query!(r#"SELECT class AS "class!: String" FROM ClassesJson"#)
+        .fetch_all(db)
+        .await?;
+    let classes: Result<Vec<model::Class>> = rows
+        .iter()
+        .map(|r| Ok(serde_json::from_str(&r.class)?))
+        .collect();
+    Ok(classes?)
+}
+
+pub(super) async fn put_classes(data: Vec<model::Class>, db: &sqlx::SqlitePool) -> Result<()> {
+    let mut t = db.begin().await?;
+    for i in data.iter() {
+        let j = serde_json::to_string(i)?;
+        sqlx::query!(r#"INSERT INTO ClassesJson(class) VALUES (json(?))"#, j)
             .execute(&mut t)
             .await?;
     }

@@ -34,13 +34,12 @@ macro_rules! create_get_endpoint {
 }
 
 create_get_endpoint!(get_all_academic_sessions);
+create_get_endpoint!(get_all_periods);
 create_get_endpoint!(get_all_orgs);
 create_get_endpoint!(get_all_users);
 create_get_endpoint!(get_all_subjects);
 create_get_endpoint!(get_all_courses);
-// subject
-// course
-// class
+create_get_endpoint!(get_all_classes);
 // enrollment
 
 macro_rules! create_put_endpoint {
@@ -55,10 +54,12 @@ macro_rules! create_put_endpoint {
 }
 
 create_put_endpoint!(put_academic_sessions);
+create_put_endpoint!(put_periods);
 create_put_endpoint!(put_orgs);
 create_put_endpoint!(put_users);
 create_put_endpoint!(put_subjects);
 create_put_endpoint!(put_courses);
+create_put_endpoint!(put_classes);
 
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
@@ -88,8 +89,10 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/academicSessions")
         .get(get_all_academic_sessions)
         .put(put_academic_sessions);
+    srv.at("/periods").get(get_all_periods).put(put_periods);
     srv.at("/subjects").get(get_all_subjects).put(put_subjects);
     srv.at("/courses").get(get_all_courses).put(put_courses);
+    srv.at("/classes").get(get_all_classes).put(put_classes);
     srv.at("/users").get(get_all_users).put(put_users);
 
     let mut authsrv = tide::with_state(srv.state().clone());

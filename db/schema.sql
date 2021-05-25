@@ -65,19 +65,19 @@ CREATE TABLE IF NOT EXISTS Classes (
     , "classTypeId" integer NOT NULL
     , "location" text
     , "courseSourcedId" text NOT NULL
-    , "schoolSourcedId" text NOT NULL
-    , "termsSourcedId" text NOT NULL
+    , "orgSourcedId" text NOT NULL
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (classTypeId) REFERENCES ClassType (id)
     , FOREIGN KEY (courseSourcedId) REFERENCES Courses (sourcedId)
-    , FOREIGN KEY (schoolSourcedId) REFERENCES Orgs (sourcedId)
-    , FOREIGN KEY (termsSourcedId) REFERENCES academicSessions (sourcedId)
+    , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
 );
 
 CREATE TABLE IF NOT EXISTS ClassGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL
     , "classSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
     , FOREIGN KEY (gradeTypeId) REFERENCES GradeType (id)
 );
@@ -85,29 +85,54 @@ CREATE UNIQUE INDEX IF NOT EXISTS ClassGradeIndex ON ClassGrades (classSourcedId
 
 CREATE TABLE IF NOT EXISTS ClassSubjects (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL
     , "classSourcedId" text NOT NULL
     , "subjectSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
     , FOREIGN KEY (subjectSourcedId) REFERENCES Subjects (sourcedId)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ClassSubjectIndex ON ClassSubjects (classSourcedId, subjectSourcedId);
 
+CREATE TABLE IF NOT EXISTS ClassAcademicSessions (
+    "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL
+    , "classSourcedId" text NOT NULL
+    , "academicSessionSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
+    , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
+    , FOREIGN KEY (academicSessionSourcedId) REFERENCES AcademicSessions (sourcedId)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ClassAcademicSessionsIndex ON ClassAcademicSessions (classSourcedId, academicSessionSourcedId);
+
 CREATE TABLE IF NOT EXISTS Periods (
     "id" integer PRIMARY KEY AUTOINCREMENT
     , "sourcedId" text UNIQUE NOT NULL
+    , "statusTypeId" integer NOT NULL
+    , "dateLastModified" text NOT NULL
     , "title" text NOT NULL
     , "periodCode" text NOT NULL
     , "description" text
-    , "orgSourcedId" text NOT NULL
-    , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
 );
--- TODO: required?
-CREATE UNIQUE INDEX IF NOT EXISTS OrgPeriods ON Periods (orgSourcedId, sourcedId);
+
+CREATE TABLE IF NOT EXISTS OrgPeriods (
+    "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL
+    , "periodSourcedId" text NOT NULL
+    , "orgSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
+    , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
+    , FOREIGN KEY (periodSourcedId) REFERENCES Periods (sourcedId)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS OrgPeriodsIndex ON OrgPeriods (periodSourcedId, orgSourcedId);
 
 CREATE TABLE IF NOT EXISTS ClassPeriods (
     "id" integer PRIMARY KEY AUTOINCREMENT
+    , "statusTypeId" integer NOT NULL
     , "classSourcedId" text NOT NULL
     , "periodSourcedId" text NOT NULL
+    , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
     , FOREIGN KEY (periodSourcedId) REFERENCES Periods (sourcedId)
 );
@@ -209,7 +234,7 @@ CREATE TABLE IF NOT EXISTS Users (
 
 CREATE TABLE IF NOT EXISTS UserIds (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "statusTypeId" integer NOT NULL 
+    , "statusTypeId" integer NOT NULL
     , "userSourcedId" text NOT NULL
     , "type" text NOT NULL
     , "identifier" text NOT NULL
@@ -220,7 +245,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserIdsIndex ON UserIds ("userSourcedId", "typ
 
 CREATE TABLE IF NOT EXISTS UserGrades (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "statusTypeId" integer NOT NULL 
+    , "statusTypeId" integer NOT NULL
     , "userSourcedId" text NOT NULL
     , "gradeTypeId" integer NOT NULL
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
@@ -231,7 +256,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserGradesIndex ON UserGrades (userSourcedId, 
 
 CREATE TABLE IF NOT EXISTS UserAgents (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "statusTypeId" integer NOT NULL 
+    , "statusTypeId" integer NOT NULL
     , "userSourcedId" text NOT NULL
     , "agentUserSourcedId" text NOT NULL
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
@@ -242,7 +267,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS UserAgentsIndex ON UserAgents (userSourcedId, 
 
 CREATE TABLE IF NOT EXISTS UserOrgs (
     "id" integer PRIMARY KEY AUTOINCREMENT
-    , "statusTypeId" integer NOT NULL 
+    , "statusTypeId" integer NOT NULL
     , "userSourcedId" text NOT NULL
     , "orgSourcedId" text NOT NULL
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
@@ -339,6 +364,37 @@ CREATE VIEW IF NOT EXISTS AcademicSessionsJson AS
         a.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS PeriodsJson AS
+    SELECT json_object(
+        'sourcedId', Periods.sourcedId
+        , 'status', StatusType.token
+        , 'dateLastModified', Periods.dateLastModified
+        , 'title', Periods.title
+        , 'periodCode', Periods.periodCode
+        , 'description', Periods.description
+        , 'orgs', json(OP.orgs)
+    ) AS 'period'
+    FROM
+        Periods
+        LEFT JOIN StatusType ON Periods.statusTypeId = StatusType.id
+        LEFT JOIN (
+            SELECT
+                periodSourcedId
+                , json_group_array(json_object(
+                    'href', 'users/' || OrgPeriods.orgSourcedId
+                    , 'sourcedId', OrgPeriods.orgSourcedId
+                    , 'type', 'org'
+                )) AS orgs
+            FROM OrgPeriods
+            WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY periodSourcedId
+        ) AS OP ON Periods.sourcedId = OP.periodSourcedId
+    GROUP BY
+        Periods.sourcedId
+    ORDER BY
+        Periods.sourcedId
+;
+
 CREATE VIEW IF NOT EXISTS SubjectsJson AS
     SELECT json_object(
         'sourcedId', Subjects.sourcedId
@@ -352,53 +408,6 @@ CREATE VIEW IF NOT EXISTS SubjectsJson AS
         LEFT JOIN StatusType ON Subjects.statusTypeId = StatusType.id
     ORDER BY
         Subjects.sourcedId
-;
-
--- OR 5.2
-CREATE VIEW IF NOT EXISTS ClassesJson AS
-    SELECT json_object(
-        'sourcedId', c.sourcedId
-        , 'status', StatusType.token
-        , 'dateLastModified', c.dateLastModified
-        , 'title', c.title
-        , 'classCode', c.classCode
-        , 'classType', ClassType.token
-        , 'location', c.location
-        , 'grades', json_group_array(GradeType.token)
-        , 'subjects', json_group_array(Subjects.title)
-        , 'course', json_object(
-            'href', 'courses/' || c.courseSourcedId
-            , 'sourcedId', c.courseSourcedId
-            , 'type', 'course'
-        )
-        , 'school', json_object(
-            'href', 'orgs/' || c.schoolSourcedId
-            , 'sourcedId', c.schoolSourcedId
-            , 'type', 'org'
-        )
-        , 'terms', json_object(
-            'href', 'academicSessions/' || c.termsSourcedId
-            , 'sourcedId', c.termsSourcedId
-            , 'type', 'academicSession'
-        )
-        , 'subjectCodes', json_group_array(Subjects.subjectCode)
-        , 'periods', json_group_array(Periods.periodCode)
-        -- TODO: resources
-    ) AS 'class'
-    FROM
-        Classes c
-        LEFT JOIN StatusType ON c.statusTypeId = StatusType.id
-        LEFT JOIN ClassType ON c.classTypeId = ClassType.id
-        LEFT JOIN ClassGrades ON c.sourcedId = ClassGrades.classSourcedId
-        LEFT JOIN GradeType ON ClassGrades.gradeTypeId = GradeType.id
-        LEFT JOIN ClassSubjects ON c.sourcedId = ClassSubjects.classSourcedId
-        LEFT JOIN Subjects ON ClassSubjects.subjectSourcedId = Subject.sourcedId
-        LEFT JOIN ClassPeriods ON c.sourcedId = ClassPeriods.classSourcedId
-        LEFT JOIN Periods ON ClassPeriods.periodSourcedId = Periods.sourcedId
-    GROUP BY
-        c.sourcedId
-    ORDER BY
-        c.sourcedId
 ;
 
 -- OR 5.3
@@ -426,7 +435,7 @@ CREATE VIEW IF NOT EXISTS CoursesJson AS
             , 'sourcedId', Courses.orgSourcedId
             , 'type', 'org'
         )
-        , 'subjectCodes', CASE WHEN CourseSubjects.courseSourcedId IS NOT NULL THEN 
+        , 'subjectCodes', CASE WHEN CourseSubjects.courseSourcedId IS NOT NULL THEN
             json_group_array(Subjects.subjectCode)
         ELSE NULL END
         -- TODO: resources
@@ -518,6 +527,91 @@ CREATE VIEW IF NOT EXISTS OrgsJson AS
         Orgs.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS ClassesJson AS
+    SELECT json_object(
+        'sourcedId', Classes.sourcedId
+        , 'status', StatusType.token
+        , 'dateLastModified', Classes.dateLastModified
+        , 'title', Classes.title
+        , 'classCode', Classes.classCode
+        , 'classType', ClassType.token
+        , 'locations', Classes.location
+        , 'grades', json(CG.grades)
+        , 'subjects', json(CS.title)
+        , 'course', json_object(
+            'href', 'courses/' || Classes.courseSourcedId
+            , 'sourcedId', Classes.courseSourcedId
+            , 'type', 'course'
+        )
+        , 'school', json_object(
+            'href', 'orgs/' || Classes.orgSourcedId
+            , 'sourcedId', Classes.orgSourcedId
+            , 'type', 'org'
+        )
+        , 'terms', json(CA.terms)
+        , 'subjectCodes', json(CS.code)
+        , 'periods', json(CP.period)
+    ) AS 'class'
+    FROM
+        Classes
+        LEFT JOIN StatusType ON Classes.statusTypeId = StatusType.id
+        LEFT JOIN ClassType ON Classes.classTypeId = ClassType.id
+        LEFT JOIN (
+            SELECT
+                classSourcedId
+                , json_group_array(
+                    GradeType.token
+                ) AS grades
+            FROM ClassGrades
+            LEFT JOIN GradeType ON ClassGrades.gradeTypeId = GradeType.id
+            WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY classSourcedId
+        ) AS CG ON Classes.sourcedId = CG.classSourcedId
+        LEFT JOIN (
+            SELECT
+                classSourcedId
+                , Subjects.sourcedId -- needed to avoid proc macro bug?
+                , json_group_array(
+                    Subjects.title
+                ) AS title
+                , json_group_array(
+                    Subjects.subjectCode
+                ) AS code
+            FROM ClassSubjects
+            LEFT JOIN Subjects ON ClassSubjects.subjectSourcedId = Subjects.sourcedId
+            WHERE ClassSubjects.statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY classSourcedId
+        ) AS CS ON Classes.sourcedId = CS.classSourcedId
+        LEFT JOIN (
+            SELECT
+                classSourcedId
+                , json_group_array(json_object(
+                        'href', 'academicSessions/' || ClassAcademicSessions.academicSessionSourcedId
+                        , 'sourcedId', ClassAcademicSessions.academicSessionSourcedId
+                        , 'type', 'academicSession'
+                )) AS terms
+            FROM ClassAcademicSessions
+            WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY classSourcedId
+        ) AS CA ON Classes.sourcedId = CA.classSourcedId
+        LEFT JOIN (
+            SELECT
+                classSourcedId
+                , Periods.sourcedId
+                , json_group_array(
+                    Periods.periodCode
+                ) AS period
+            FROM ClassPeriods
+            LEFT JOIN Periods ON ClassPeriods.periodSourcedId = Periods.sourcedId
+            --WHERE ClassPeriods.statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            GROUP BY classSourcedId
+        ) AS CP ON Classes.sourcedId = CP.classSourcedId
+    GROUP BY
+        Classes.sourcedId
+    ORDER BY
+        Classes.sourcedId
+;
+
 -- OR 5.11
 CREATE VIEW IF NOT EXISTS UsersJson AS
     SELECT json_object(
@@ -568,7 +662,7 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
             FROM UserAgents
             WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
             GROUP BY userSourcedId
-        ) AS UA ON Users.sourcedId = UA.userSourcedId 
+        ) AS UA ON Users.sourcedId = UA.userSourcedId
         LEFT JOIN (
             SELECT
                 userSourcedId
@@ -581,7 +675,7 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
             WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
             GROUP BY userSourcedId
         ) AS UO ON Users.SourcedId = UO.userSourcedId
-        LEFT JOIN UserGrades ON Users.sourcedId = UserGrades.userSourcedId 
+        LEFT JOIN UserGrades ON Users.sourcedId = UserGrades.userSourcedId
             AND UserGrades.statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
         LEFT JOIN GradeType ON UserGrades.gradeTypeId = GradeType.id
     GROUP BY
@@ -624,6 +718,173 @@ BEGIN
         , sessionTypeId=excluded.sessionTypeId
         , parentSourcedId=excluded.parentSourcedId
         , schoolYear=excluded.schoolYear
+    ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertPeriodsJson
+    INSTEAD OF INSERT ON PeriodsJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Periods (
+        sourcedId
+        , statusTypeId
+        , dateLastModified
+        , title
+        , periodCode
+        , description
+    )
+    VALUES (
+        json_extract(NEW.period, '$.sourcedId')
+        , ( SELECT id FROM StatusType WHERE token = json_extract(NEW.period, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.period, '$.dateLastModified'))
+        , json_extract(NEW.period, '$.title')
+        , json_extract(NEW.period, '$.periodCode')
+        , json_extract(NEW.period, '$.description')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , title=excluded.title
+        , periodCode=excluded.periodCode
+        , description=excluded.description
+    ;
+
+    UPDATE OrgPeriods
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE periodSourcedId = json_extract(NEW.period, '$.sourcedId');
+
+    INSERT OR IGNORE INTO OrgPeriods(
+        periodSourcedId
+        , statusTypeId
+        , orgSourcedId
+    )
+    SELECT
+        json_extract(NEW.period, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , json_extract(org.value, '$.sourcedId')
+    FROM
+        json_each(NEW.period, '$.orgs') AS  org
+    WHERE true
+    ON CONFLICT (periodSourcedId, orgSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+    ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertClassesJson
+    INSTEAD OF INSERT ON ClassesJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Classes (
+        sourcedId
+        , statusTypeId
+        , dateLastModified
+        , title
+        , classCode
+        , classTypeId
+        , location
+        , courseSourcedId
+        , orgSourcedId
+    )
+    VALUES (
+        json_extract(NEW.class, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW.class, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.class, '$.dateLastModified'))
+        , json_extract(NEW.class, '$.title')
+        , json_extract(NEW.class, '$.classCode')
+        , (SELECT id FROM classType WHERE token = json_extract(NEW.class, '$.classType'))
+        , json_extract(NEW.class, '$.location')
+        , json_extract(NEW.class, '$.course.sourcedId')
+        , json_extract(NEW.class, '$.school.sourcedId')
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , title=excluded.title
+        , classCode=excluded.classCode
+        , classTypeId=excluded.classTypeId
+        , location=excluded.location
+        , courseSourcedId=excluded.courseSourcedId
+        , orgSourcedId=excluded.orgSourcedId
+    ;
+
+    UPDATE ClassGrades
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE classSourcedId = json_extract(NEW.class, '$.sourcedId');
+
+    INSERT OR IGNORE INTO ClassGrades(
+        classSourcedId
+        , statusTypeId
+        , gradeTypeId
+    )
+    SELECT
+        json_extract(NEW.class, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , (SELECT id FROM GradeType WHERE token = grades.value)
+    FROM
+        json_each(NEW.class, '$.grades') AS grades
+    WHERE true
+    ON CONFLICT (classSourcedId, gradeTypeId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+    ;
+
+    UPDATE ClassSubjects
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE classSourcedId = json_extract(NEW.class, '$.sourcedId');
+
+    INSERT OR IGNORE INTO ClassSubjects(
+        classSourcedId
+        , statusTypeId
+        , subjectSourcedId
+    )
+    SELECT
+        json_extract(NEW.class, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , (SELECT sourcedId FROM Subjects WHERE subjectCode = sc.value)
+    FROM
+        json_each(NEW.class, '$.subjectCodes') AS sc
+    WHERE true
+    ON CONFLICT (classSourcedId, subjectSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+    ;
+
+    UPDATE ClassAcademicSessions
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE classSourcedId = json_extract(NEW.class, '$.sourcedId');
+
+    INSERT OR IGNORE INTO ClassAcademicSessions(
+        classSourcedId
+        , statusTypeId
+        , academicSessionSourcedId
+    )
+    SELECT
+        json_extract(NEW.class, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , json_extract(term.value, '$.sourcedId')
+    FROM
+        json_each(NEW.class, '$.terms') AS term
+    WHERE true
+    ON CONFLICT (classSourcedId, academicSessionSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+    ;
+
+    UPDATE ClassPeriods
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
+    WHERE classSourcedId = json_extract(NEW.class, '$.sourcedId');
+
+    INSERT INTO ClassPeriods(
+        classSourcedId
+        , statusTypeId
+        , periodSourcedId
+    )
+    SELECT
+        json_extract(NEW.class, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = 'active')
+        , (SELECT sourcedId FROM Periods WHERE periodCode = pc.value)
+    FROM
+        json_each(NEW.class, '$.periods') AS pc
+    WHERE true
+    ON CONFLICT (classSourcedId, periodSourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
     ;
 END;
 
@@ -813,7 +1074,7 @@ BEGIN
 
     -- Upserts UserIds table
     UPDATE UserIds
-    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
     WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserIds (userSourcedId
@@ -836,7 +1097,7 @@ BEGIN
 
     -- Upserts UserOrgs table
     UPDATE UserOrgs
-    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
     WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserOrgs(
@@ -855,8 +1116,8 @@ BEGIN
         statusTypeId=excluded.statusTypeId
     ;
 
-    /* 
-       
+    /*
+   
        Upserts the UserAgents table
 
        This first sets a users User/Agent links to the 'tobedeleted' status
@@ -866,8 +1127,8 @@ BEGIN
        Sets users User/Agent links to 'tobedeleted' status
 
     */
-    UPDATE UserAgents 
-    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    UPDATE UserAgents
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
     WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserAgents(
@@ -888,7 +1149,7 @@ BEGIN
 
     -- Upserts UserGrades table
     UPDATE UserGrades
-    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' ) 
+    SET statusTypeId = ( SELECT id FROM StatusType WHERE token = 'tobedeleted' )
     WHERE userSourcedId = json_extract(NEW."user", '$.sourcedId');
 
     INSERT OR IGNORE INTO UserGrades(

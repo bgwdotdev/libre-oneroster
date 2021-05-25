@@ -46,12 +46,46 @@ pub struct AcademicSession {
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct Period {
+    pub sourced_id: String,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub title: String,
+    pub period_code: String,
+    pub description: Option<String>,
+    pub orgs: Vec<GUIDRef>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Subject {
     pub sourced_id: String,
     pub status: StatusType,
     pub date_last_modified: DateTime<Utc>,
     pub title: String,
     pub subject_code: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Class {
+    pub sourced_id: String,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub title: String,
+    pub class_code: Option<String>,
+    pub class_type: ClassType,
+    pub location: Option<String>,
+    pub grades: Option<Vec<String>>,
+    pub subjects: Option<Vec<String>>,
+    pub course: GUIDRef,
+    pub school: GUIDRef,
+    pub terms: Vec<GUIDRef>,
+    pub subject_codes: Option<Vec<String>>,
+    pub periods: Option<Vec<String>>,
+    pub resources: Option<Vec<GUIDRef>>,
 }
 
 #[skip_serializing_none]
@@ -178,13 +212,15 @@ pub enum GUIDType {
     term,
     user,
 }
-/*
-enum ClassType {
-    #[allow(non_camel_case_types)]
-    HomeRoom,
-    Scheduled,
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[allow(non_camel_case_types)]
+pub enum ClassType {
+    homeroom,
+    scheduled,
 }
 
+/*
 enum SessionType {
     GradingPeriod,
     Semester,
