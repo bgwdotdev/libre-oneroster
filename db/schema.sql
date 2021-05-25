@@ -603,7 +603,7 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
                 ) AS period
             FROM ClassPeriods
             LEFT JOIN Periods ON ClassPeriods.periodSourcedId = Periods.sourcedId
-            --WHERE ClassPeriods.statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
+            WHERE ClassPeriods.statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
             GROUP BY classSourcedId
         ) AS CP ON Classes.sourcedId = CP.classSourcedId
     GROUP BY
@@ -1025,7 +1025,6 @@ BEGIN
         , statusTypeId
         , dateLastModified
         , username
-        -- UserIds
         , enabledUser
         , givenName
         , familyName
@@ -1035,9 +1034,6 @@ BEGIN
         , email
         , sms
         , phone
-        -- UserAgents
-        -- Orgs
-        -- grades
         , password
     )
     VALUES (
@@ -1117,7 +1113,7 @@ BEGIN
     ;
 
     /*
-   
+
        Upserts the UserAgents table
 
        This first sets a users User/Agent links to the 'tobedeleted' status
