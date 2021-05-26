@@ -220,11 +220,44 @@ pub enum ClassType {
     scheduled,
 }
 
-/*
-enum SessionType {
-    GradingPeriod,
-    Semester,
-    SchoolYear,
-    Term,
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Classes {
+    pub classes: Vec<Class>,
 }
-*/
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AcademicSessions {
+    pub academic_sessions: Vec<AcademicSession>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Periods {
+    pub periods: Vec<Period>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Orgs {
+    pub orgs: Vec<Org>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Users {
+    pub users: Vec<User>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Subjects {
+    pub subjects: Vec<Subject>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Courses {
+    pub courses: Vec<Course>,
+}

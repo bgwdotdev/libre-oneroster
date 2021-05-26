@@ -326,6 +326,13 @@ CREATE TABLE IF NOT EXISTS GradeType (
 );
 
 -- OR:5.1
+CREATE VIEW IF NOT EXISTS AcademicSessionsJsonArray AS
+    SELECT json_object(
+        'academicSessions', json_group_array(json(academicSession))
+    ) AS 'academicSessions'
+FROM AcademicSessionsJson
+;
+
 CREATE VIEW IF NOT EXISTS AcademicSessionsJson AS
     SELECT json_object(
         'sourcedId', a.sourcedId
@@ -364,6 +371,13 @@ CREATE VIEW IF NOT EXISTS AcademicSessionsJson AS
         a.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS PeriodsJsonArray AS
+    SELECT json_object(
+        'periods', json_group_array(json(period))
+    ) AS 'periods'
+FROM PeriodsJson
+;
+
 CREATE VIEW IF NOT EXISTS PeriodsJson AS
     SELECT json_object(
         'sourcedId', Periods.sourcedId
@@ -395,6 +409,13 @@ CREATE VIEW IF NOT EXISTS PeriodsJson AS
         Periods.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS SubjectsJsonArray AS
+    SELECT json_object(
+        'subjects', json_group_array(json(subject))
+    ) AS 'subjects'
+FROM SubjectsJson
+;
+
 CREATE VIEW IF NOT EXISTS SubjectsJson AS
     SELECT json_object(
         'sourcedId', Subjects.sourcedId
@@ -411,6 +432,13 @@ CREATE VIEW IF NOT EXISTS SubjectsJson AS
 ;
 
 -- OR 5.3
+CREATE VIEW IF NOT EXISTS CoursesJsonArray AS
+    SELECT json_object(
+        'courses', json_group_array(json(course))
+    ) AS 'courses'
+FROM CoursesJson
+;
+
 CREATE VIEW IF NOT EXISTS CoursesJson AS
     SELECT json_object(
         'sourcedId', Courses.sourcedId
@@ -454,6 +482,13 @@ CREATE VIEW IF NOT EXISTS CoursesJson AS
 ;
 
 -- OR 5.5
+CREATE VIEW IF NOT EXISTS EnrollmentsJsonArray AS
+    SELECT json_object(
+        'enrollments', json_group_array(json(enrollment))
+    ) AS 'enrollments'
+FROM EnrollmentsJson
+;
+
 CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
     SELECT json_object(
         'sourcedId', Enrollments.sourcedId
@@ -491,6 +526,13 @@ CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
 
 -- TODO: update styling
 -- OR:5.8
+CREATE VIEW IF NOT EXISTS OrgsJsonArray AS
+    SELECT json_object(
+        'orgs', json_group_array(json(org))
+    ) AS 'orgs'
+FROM OrgsJson
+;
+
 CREATE VIEW IF NOT EXISTS OrgsJson AS
     SELECT json_object(
         'sourcedId', Orgs.sourcedId
@@ -526,6 +568,9 @@ CREATE VIEW IF NOT EXISTS OrgsJson AS
     ORDER BY
         Orgs.sourcedId
 ;
+
+CREATE VIEW IF NOT EXISTS ClassesJsonArray AS
+    SELECT json_object('classes', json_group_array(json(class))) AS 'classes' FROM ClassesJson;
 
 CREATE VIEW IF NOT EXISTS ClassesJson AS
     SELECT json_object(
@@ -613,6 +658,13 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
 ;
 
 -- OR 5.11
+CREATE VIEW IF NOT EXISTS UsersJsonArray AS
+    SELECT json_object(
+        'users', json_group_array(json("user"))
+    ) AS 'users
+FROM UsersJson
+;
+
 CREATE VIEW IF NOT EXISTS UsersJson AS
     SELECT json_object(
         'sourcedId', Users.sourcedId

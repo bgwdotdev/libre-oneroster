@@ -125,178 +125,125 @@ pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> Result
     Err(ServerError::NoRecordDeleted)
 }
 
-pub(crate) async fn get_all_academic_sessions(
-    db: &sqlx::SqlitePool,
-) -> Result<Vec<model::AcademicSession>> {
-    let rows = sqlx::query!(
-        r#"SELECT academicSession AS "academicSession!: String" FROM AcademicSessionsJson"#
-    )
-    .fetch_all(db)
-    .await?;
-    let ac: Result<Vec<model::AcademicSession>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.academicSession)?))
-        .collect();
-    Ok(ac?)
+/// Creates a database call function to the relevant json array object view
+/// $name is the name of the function mirroring the HTTP API get request
+/// $data is the json array struct to serialize to
+/// $query is the SQL query to the relevant view
+/// $object is the json object contained in the $data struct
+macro_rules! create_get_db {
+    ($name:ident, $data:ty, $query:literal, $object:ident) => {
+        pub(crate) async fn $name(db: &sqlx::SqlitePool) -> Result<$data> {
+            let row = sqlx::query!($query).fetch_one(db).await?;
+            if let Some(data) = row.$object {
+                let output: $data = serde_json::from_str(&data)?;
+                if output.$object.len() >= 1 {
+                    return Ok(output);
+                }
+            }
+            Err(ServerError::NoContent)
+        }
+    };
 }
 
-pub(crate) async fn put_academic_sessions(
-    data: Vec<model::AcademicSession>,
-    db: &sqlx::SqlitePool,
-) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(
-            r#"INSERT INTO AcademicSessionsJson(academicSession) VALUES (json(?))"#,
-            j
-        )
-        .execute(&mut t)
-        .await?;
-    }
-    t.commit().await?;
-    Ok(())
+create_get_db!(
+    get_all_classes,
+    model::Classes,
+    "SELECT classes FROM ClassesJsonArray",
+    classes
+);
+create_get_db!(
+    get_all_academic_sessions,
+    model::AcademicSessions,
+    "SELECT academicSessions AS academic_sessions FROM AcademicSessionsJsonArray",
+    academic_sessions
+);
+create_get_db!(
+    get_all_periods,
+    model::Periods,
+    "SELECT periods FROM PeriodsJsonArray",
+    periods
+);
+create_get_db!(
+    get_all_orgs,
+    model::Orgs,
+    "SELECT orgs FROM OrgsJsonArray",
+    orgs
+);
+create_get_db!(
+    get_all_users,
+    model::Users,
+    "SELECT users FROM UsersJsonArray",
+    users
+);
+create_get_db!(
+    get_all_subjects,
+    model::Subjects,
+    "SELECT subjects FROM SubjectsJsonArray",
+    subjects
+);
+create_get_db!(
+    get_all_courses,
+    model::Courses,
+    "SELECT courses FROM CoursesJsonArray",
+    courses
+);
+
+macro_rules! create_put_db {
+    ($name:ident, $data:ty, $query:literal, $object:ident) => {
+        pub(crate) async fn $name(data: $data, db: &sqlx::SqlitePool) -> Result<()> {
+            let mut transaction = db.begin().await?;
+            for i in data.$object.iter() {
+                let json = serde_json::to_string(i)?;
+                sqlx::query!($query, json).execute(&mut transaction).await?;
+            }
+            transaction.commit().await?;
+            Ok(())
+        }
+    };
 }
 
-pub(super) async fn get_all_periods(db: &sqlx::SqlitePool) -> Result<Vec<model::Period>> {
-    let rows = sqlx::query!(r#"SELECT period AS "period!: String" FROM PeriodsJson"#)
-        .fetch_all(db)
-        .await?;
-    let period: Result<Vec<model::Period>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.period)?))
-        .collect();
-    Ok(period?)
-}
-
-pub(super) async fn put_periods(data: Vec<model::Period>, db: &sqlx::SqlitePool) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(r#"INSERT INTO PeriodsJson(period) VALUES (json(?))"#, j)
-            .execute(&mut t)
-            .await?;
-    }
-    t.commit().await?;
-    Ok(())
-}
-
-pub(super) async fn get_all_subjects(db: &sqlx::SqlitePool) -> Result<Vec<model::Subject>> {
-    let rows = sqlx::query!(r#"SELECT subject AS "subject!: String" FROM SubjectsJson"#)
-        .fetch_all(db)
-        .await?;
-    let subject: Result<Vec<model::Subject>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.subject)?))
-        .collect();
-    Ok(subject?)
-}
-
-pub(super) async fn put_subjects(data: Vec<model::Subject>, db: &sqlx::SqlitePool) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(r#"INSERT INTO SubjectsJson(subject) VALUES (json(?))"#, j)
-            .execute(&mut t)
-            .await?;
-    }
-    t.commit().await?;
-    Ok(())
-}
-
-pub(super) async fn get_all_classes(db: &sqlx::SqlitePool) -> Result<Vec<model::Class>> {
-    let rows = sqlx::query!(r#"SELECT class AS "class!: String" FROM ClassesJson"#)
-        .fetch_all(db)
-        .await?;
-    let classes: Result<Vec<model::Class>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.class)?))
-        .collect();
-    Ok(classes?)
-}
-
-pub(super) async fn put_classes(data: Vec<model::Class>, db: &sqlx::SqlitePool) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(r#"INSERT INTO ClassesJson(class) VALUES (json(?))"#, j)
-            .execute(&mut t)
-            .await?;
-    }
-    t.commit().await?;
-    Ok(())
-}
-
-pub(super) async fn get_all_courses(db: &sqlx::SqlitePool) -> Result<Vec<model::Course>> {
-    let rows = sqlx::query!(r#"SELECT course AS "course!: String" FROM CoursesJson"#)
-        .fetch_all(db)
-        .await?;
-    let course: Result<Vec<model::Course>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.course)?))
-        .collect();
-    Ok(course?)
-}
-
-pub(super) async fn put_courses(data: Vec<model::Course>, db: &sqlx::SqlitePool) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(r#"INSERT INTO CoursesJson(course) VALUES (json(?))"#, j)
-            .execute(&mut t)
-            .await?;
-    }
-    t.commit().await?;
-    Ok(())
-}
-
-pub(super) async fn get_all_orgs(db: &sqlx::SqlitePool) -> Result<Vec<model::Org>> {
-    let rows = sqlx::query!(r#"SELECT org AS "org!: String" FROM OrgsJson"#)
-        .fetch_all(db)
-        .await?;
-    let orgs: Result<Vec<Org>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.org)?))
-        .collect();
-    Ok(orgs?)
-}
-
-pub(super) async fn put_orgs(data: Vec<model::Org>, db: &sqlx::SqlitePool) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(r#"INSERT INTO OrgsJson(org) VALUES (json(?))"#, j)
-            .execute(&mut t)
-            .await?;
-    }
-    t.commit().await?;
-
-    Ok(())
-}
-
-pub(super) async fn get_all_users(db: &sqlx::SqlitePool) -> Result<Vec<model::User>> {
-    let rows = sqlx::query!(r#"SELECT user AS "user!: String" FROM UsersJson"#)
-        .fetch_all(db)
-        .await?;
-    let users: Result<Vec<model::User>> = rows
-        .iter()
-        .map(|r| Ok(serde_json::from_str(&r.user)?))
-        .collect();
-    Ok(users?)
-}
-
-pub(super) async fn put_users(data: Vec<model::User>, db: &sqlx::SqlitePool) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let j = serde_json::to_string(i)?;
-        sqlx::query!(r#"INSERT INTO UsersJson(user) VALUES (json(?))"#, j)
-            .execute(&mut t)
-            .await?;
-    }
-    t.commit().await?;
-
-    Ok(())
-}
+create_put_db!(
+    put_academic_sessions,
+    model::AcademicSessions,
+    "INSERT INTO AcademicSessionsJson(academicSession) VALUES (json(?))",
+    academic_sessions
+);
+create_put_db!(
+    put_periods,
+    model::Periods,
+    "INSERT INTO PeriodsJson(period) VALUES (json(?))",
+    periods
+);
+create_put_db!(
+    put_subjects,
+    model::Subjects,
+    "INSERT INTO SubjectsJson(subject) VALUES (json(?))",
+    subjects
+);
+create_put_db!(
+    put_classes,
+    model::Classes,
+    "INSERT INTO ClassesJson(class) VALUES (json(?))",
+    classes
+);
+create_put_db!(
+    put_courses,
+    model::Courses,
+    "INSERT INTO CoursesJson(course) VALUES (json(?))",
+    courses
+);
+create_put_db!(
+    put_orgs,
+    model::Orgs,
+    "INSERT INTO OrgsJson(org) VALUES (json(?))",
+    orgs
+);
+create_put_db!(
+    put_users,
+    model::Users,
+    "INSERT INTO UsersJson(user) VALUES (json(?))",
+    users
+);
 
 pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
     init_db(path).await?;

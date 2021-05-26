@@ -123,6 +123,9 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
                     r.set_status(400);
                     r.set_body(json!(ep));
                 }
+                ServerError::NoContent => {
+                    r.set_status(204);
+                }
             }
         };
         Ok(r)
