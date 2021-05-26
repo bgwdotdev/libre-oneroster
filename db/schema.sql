@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS Enrollments (
     , "dateLastModified" text NOT NULL
     , "userSourcedId" text NOT NULL
     , "classSourcedId" text NOT NULL
-    , "SchoolSourcedId" text NOT NULL
+    , "orgSourcedId" text NOT NULL
     , "roleTypeId" integer NOT NULL
     , "primary" integer -- bool 0/1
     , "beginDate" text
@@ -192,9 +192,10 @@ CREATE TABLE IF NOT EXISTS Enrollments (
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId)
     , FOREIGN KEY (classSourcedId) REFERENCES Classes (sourcedId)
-    , FOREIGN KEY (schoolSourcedId) REFERENCES Orgs (sourcedId)
+    , FOREIGN KEY (orgSourcedId) REFERENCES Orgs (sourcedId)
     , FOREIGN KEY (roleTypeId) REFERENCES RoleType (id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS EnrollmentsIndex ON Enrollments (userSourcedId, classSourcedId, orgSourcedId);
 
 -- OR:4.9
 CREATE TABLE IF NOT EXISTS Orgs (
@@ -507,8 +508,8 @@ CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
             , 'type', 'class'
         )
         , 'school', json_object(
-            'href', 'orgs' || Enrollments.schoolSourcedId
-            , 'sourcedId', Enrollments.schoolSourcedId
+            'href', 'orgs' || Enrollments.orgSourcedId
+            , 'sourcedId', Enrollments.orgSourcedId
             , 'type', 'org'
         )
         , 'beginDate', Enrollments.beginDate
@@ -661,7 +662,7 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
 CREATE VIEW IF NOT EXISTS UsersJsonArray AS
     SELECT json_object(
         'users', json_group_array(json("user"))
-    ) AS 'users
+    ) AS 'users'
 FROM UsersJson
 ;
 
@@ -755,8 +756,8 @@ BEGIN
         , (SELECT id FROM StatusType WHERE token = json_extract(NEW.academicSession, '$.status'))
         , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.academicSession, '$.dateLastModified'))
         , json_extract(NEW.academicSession, '$.title')
-        , json_extract(NEW.academicSession, '$.startDate')
-        , json_extract(NEW.academicSession, '$.endDate')
+        , date(json_extract(NEW.academicSession, '$.startDate'))
+        , date(json_extract(NEW.academicSession, '$.endDate'))
         , (SELECT id FROM SessionType WHERE token = json_extract(NEW.academicSession, '$.type'))
         , json_extract(NEW.academicSession, '$.parent.sourcedId')
         , json_extract(NEW.academicSession, '$.schoolYear')
@@ -1066,6 +1067,47 @@ BEGIN
     WHERE true
     ON CONFLICT (courseSourcedId, subjectSourcedId) DO UPDATE SET
         statusTypeId=excluded.statusTypeId
+    ;
+END;
+
+CREATE TRIGGER IF NOT EXISTS TriggerUpsertEnrollmentsJson
+    INSTEAD OF INSERT ON EnrollmentsJson
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Enrollments (
+        sourcedId
+        , statusTypeId
+        , dateLastModified
+        , userSourcedId
+        , classSourcedId
+        , orgSourcedId
+        , roleTypeId
+        , "primary"
+        , beginDate
+        , endDate
+    )
+    VALUES (
+        json_extract(NEW.enrollment, '$.sourcedId')
+        , (SELECT id FROM StatusType WHERE token = json_extract(NEW.enrollment, '$.status'))
+        , strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(NEW.enrollment, '$.dateLastModified'))
+        , json_extract(NEW.enrollment, '$.user.sourcedId')
+        , json_extract(NEW.enrollment, '$.class.sourcedId')
+        , json_extract(NEW.enrollment, '$.school.sourcedId')
+        , (SELECT id FROM RoleType WHERE token = json_extract(NEW.enrollment, '$.role'))
+        , json_extract(NEW.enrollment, '$.primary')
+        , date(json_extract(NEW.enrollment, '$.beginDate'))
+        , date(json_extract(NEW.enrollment, '$.endDate'))
+    )
+    ON CONFLICT (sourcedId) DO UPDATE SET
+        statusTypeId=excluded.statusTypeId
+        , dateLastModified=excluded.dateLastModified
+        , userSourcedId=excluded.userSourcedId
+        , classSourcedId=excluded.classSourcedId
+        , orgSourcedId=excluded.orgSourcedId
+        , roleTypeId=excluded.roleTypeId
+        , "primary"=excluded."primary"
+        , beginDate=excluded.beginDate
+        , endDate=excluded.endDate
     ;
 END;
 

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -34,8 +34,8 @@ pub struct AcademicSession {
     pub status: StatusType,
     pub date_last_modified: DateTime<Utc>,
     pub title: String,
-    pub start_date: DateTime<Utc>,
-    pub end_date: DateTime<Utc>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
     #[serde(rename = "type")]
     pub academic_session_type: SessionType,
     pub parent: Option<GUIDRef>,
@@ -102,6 +102,21 @@ pub struct Course {
     pub subjects: Option<Vec<String>>,
     pub org: GUIDRef,
     pub subject_codes: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Enrollment {
+    pub sourced_id: String,
+    pub status: StatusType,
+    pub date_last_modified: DateTime<Utc>,
+    pub user: GUIDRef,
+    pub class: GUIDRef,
+    pub school: GUIDRef,
+    pub role: RoleType,
+    pub primary: Option<i8>,
+    pub begin_date: Option<NaiveDate>,
+    pub end_date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
@@ -260,4 +275,10 @@ pub struct Subjects {
 #[serde(rename_all = "camelCase")]
 pub struct Courses {
     pub courses: Vec<Course>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Enrollments {
+    pub enrollments: Vec<Enrollment>,
 }

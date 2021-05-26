@@ -187,6 +187,12 @@ create_get_db!(
     "SELECT courses FROM CoursesJsonArray",
     courses
 );
+create_get_db!(
+    get_all_enrollments,
+    model::Enrollments,
+    "SELECT enrollments FROM EnrollmentsJsonArray",
+    enrollments
+);
 
 macro_rules! create_put_db {
     ($name:ident, $data:ty, $query:literal, $object:ident) => {
@@ -243,6 +249,12 @@ create_put_db!(
     model::Users,
     "INSERT INTO UsersJson(user) VALUES (json(?))",
     users
+);
+create_put_db!(
+    put_enrollments,
+    model::Enrollments,
+    "INSERT INTO EnrollmentsJson(enrollment) VALUES (json(?))",
+    enrollments
 );
 
 pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {

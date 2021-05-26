@@ -49,6 +49,7 @@ create_get_endpoint!(get_all_orgs, orgs, "orgs");
 create_get_endpoint!(get_all_users, users, "users");
 create_get_endpoint!(get_all_subjects, subjects, "subjects");
 create_get_endpoint!(get_all_courses, courses, "courses");
+create_get_endpoint!(get_all_enrollments, enrollments, "enrollments");
 // enrollment
 
 macro_rules! create_put_endpoint {
@@ -69,6 +70,7 @@ create_put_endpoint!(put_users);
 create_put_endpoint!(put_subjects);
 create_put_endpoint!(put_courses);
 create_put_endpoint!(put_classes);
+create_put_endpoint!(put_enrollments);
 
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
@@ -103,6 +105,9 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/subjects").get(get_all_subjects).put(put_subjects);
     srv.at("/courses").get(get_all_courses).put(put_courses);
     srv.at("/users").get(get_all_users).put(put_users);
+    srv.at("/enrollments")
+        .get(get_all_enrollments)
+        .put(put_enrollments);
 
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![
