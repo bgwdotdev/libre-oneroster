@@ -7,17 +7,18 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-surf = "2.1"
+surf = "2.2"
 tide = "0.16"
 async-std = { version = "1.9", features = ["attributes"] }
 futures = "0.3"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_with = "1.7"
 log = "0.4"
 env_logger = "0.7"
 clap = "3.0.0-beta.2"
-sqlx = { version = "0.5", features = [ "sqlite", "runtime-async-std-native-tls" ] }
+sqlx = { version = "0.5", features = [ "sqlite", "runtime-async-std-native-tls", "chrono" ] }
 jsonwebtoken = "8.0.0-beta.0"
 openssl = "0.10"
 lazy_static = "1.4"
@@ -27,4 +28,4 @@ hex = "0.4"
 bcrypt = "0.9"
 http-types = "2.10"
 jq-rs = "0.4"
-regex = "1.4"
+regex = "1.5"

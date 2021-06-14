@@ -1,5 +1,6 @@
 use crate::model;
 use crate::server::{auth, Result, ServerError};
+use model::Org;
 use sqlite::SqlitePoolOptions;
 use sqlx::{migrate::MigrateDatabase, sqlite};
 use tide::prelude::*;
@@ -124,50 +125,138 @@ pub(super) async fn delete_api_user(uuid: &str, db: &sqlx::SqlitePool) -> Result
     Err(ServerError::NoRecordDeleted)
 }
 
-pub(crate) async fn get_all_academic_sessions(
-    db: &sqlx::SqlitePool,
-    params: &crate::server::params::Parameters,
-) -> Result<Vec<model::AcademicSession>> {
-    let rows = sqlx::query_as!(
-        model::AcademicSession,
-        r#"
-        SELECT json_extract(data, '$.sourcedId') as "sourced_id!: String"
-            ,json_extract(data, '$.status') as "status!: String"
-            ,json_extract(data, '$.year') as "year?: String"
-            FROM academicSessions
-            ORDER BY sourcedId
-            LIMIT ?
-            OFFSET ?
-        "#,
-        params.limit,
-        params.offset
-    )
-    .fetch_all(db)
-    .await?;
-    Ok(rows)
+/// Creates a database call function to the relevant json array object view
+/// $name is the name of the function mirroring the HTTP API get request
+/// $data is the json array struct to serialize to
+/// $query is the SQL query to the relevant view
+/// $object is the json object contained in the $data struct
+macro_rules! create_get_db {
+    ($name:ident, $data:ty, $query:literal, $object:ident) => {
+        pub(crate) async fn $name(db: &sqlx::SqlitePool) -> Result<$data> {
+            let row = sqlx::query!($query).fetch_one(db).await?;
+            if let Some(data) = row.$object {
+                let output: $data = serde_json::from_str(&data)?;
+                if output.$object.len() >= 1 {
+                    return Ok(output);
+                }
+            }
+            Err(ServerError::NoContent)
+        }
+    };
 }
 
-pub(crate) async fn put_academic_sessions(
-    data: Vec<model::AcademicSession>,
-    db: &sqlx::SqlitePool,
-) -> Result<()> {
-    let mut t = db.begin().await?;
-    for i in data.iter() {
-        let json = json!(i).to_string();
-        sqlx::query!(
-            r#"INSERT INTO academicSessions(sourcedId, data)
-            VALUES(?, json(?))
-            ON CONFLICT(sourcedId)
-            DO UPDATE SET sourcedId=excluded.sourcedId, data=excluded.data"#,
-            i.sourced_id,
-            json,
-        )
-        .execute(&mut t)
-        .await?;
-    }
-    t.commit().await?;
-    Ok(())
+create_get_db!(
+    get_all_classes,
+    model::Classes,
+    "SELECT classes FROM ClassesJsonArray",
+    classes
+);
+create_get_db!(
+    get_all_academic_sessions,
+    model::AcademicSessions,
+    "SELECT academicSessions AS academic_sessions FROM AcademicSessionsJsonArray",
+    academic_sessions
+);
+create_get_db!(
+    get_all_periods,
+    model::Periods,
+    "SELECT periods FROM PeriodsJsonArray",
+    periods
+);
+create_get_db!(
+    get_all_orgs,
+    model::Orgs,
+    "SELECT orgs FROM OrgsJsonArray",
+    orgs
+);
+create_get_db!(
+    get_all_users,
+    model::Users,
+    "SELECT users FROM UsersJsonArray",
+    users
+);
+create_get_db!(
+    get_all_subjects,
+    model::Subjects,
+    "SELECT subjects FROM SubjectsJsonArray",
+    subjects
+);
+create_get_db!(
+    get_all_courses,
+    model::Courses,
+    "SELECT courses FROM CoursesJsonArray",
+    courses
+);
+create_get_db!(
+    get_all_enrollments,
+    model::Enrollments,
+    "SELECT enrollments FROM EnrollmentsJsonArray",
+    enrollments
+);
+
+macro_rules! create_put_db {
+    ($name:ident, $data:ty, $query:literal, $object:ident) => {
+        pub(crate) async fn $name(data: $data, db: &sqlx::SqlitePool) -> Result<()> {
+            let mut transaction = db.begin().await?;
+            for i in data.$object.iter() {
+                let json = serde_json::to_string(i)?;
+                sqlx::query!($query, json).execute(&mut transaction).await?;
+            }
+            transaction.commit().await?;
+            Ok(())
+        }
+    };
 }
+
+create_put_db!(
+    put_academic_sessions,
+    model::AcademicSessions,
+    "INSERT INTO AcademicSessionsJson(academicSession) VALUES (json(?))",
+    academic_sessions
+);
+create_put_db!(
+    put_periods,
+    model::Periods,
+    "INSERT INTO PeriodsJson(period) VALUES (json(?))",
+    periods
+);
+create_put_db!(
+    put_subjects,
+    model::Subjects,
+    "INSERT INTO SubjectsJson(subject) VALUES (json(?))",
+    subjects
+);
+create_put_db!(
+    put_classes,
+    model::Classes,
+    "INSERT INTO ClassesJson(class) VALUES (json(?))",
+    classes
+);
+create_put_db!(
+    put_courses,
+    model::Courses,
+    "INSERT INTO CoursesJson(course) VALUES (json(?))",
+    courses
+);
+create_put_db!(
+    put_orgs,
+    model::Orgs,
+    "INSERT INTO OrgsJson(org) VALUES (json(?))",
+    orgs
+);
+create_put_db!(
+    put_users,
+    model::Users,
+    "INSERT INTO UsersJson(user) VALUES (json(?))",
+    users
+);
+create_put_db!(
+    put_enrollments,
+    model::Enrollments,
+    "INSERT INTO EnrollmentsJson(enrollment) VALUES (json(?))",
+    enrollments
+);
+
 pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
     init_db(path).await?;
     let pool = connect(path).await?;

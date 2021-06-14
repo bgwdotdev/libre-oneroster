@@ -24,17 +24,22 @@ impl Default for Parameters {
     }
 }
 
-pub(crate) async fn apply_parameters(json: &String, params: &Parameters) -> Result<String> {
-    let q = parameter_builder(&params).await?;
+pub(crate) async fn apply_parameters(
+    json: &String,
+    params: &Parameters,
+    wrapper: &str,
+) -> Result<String> {
+    let q = parameter_builder(&params, wrapper).await?;
     let output = jq_rs::run(&q, &json).map_err(|e| {
+        log::debug!("{}", json);
         log::debug!("jq error: {}: query: {}", e, q);
         ServerError::InvalidParameters
     })?;
     Ok(output)
 }
 
-async fn parameter_builder(params: &Parameters) -> Result<String> {
-    let mut builder = format!("[ .[] ");
+async fn parameter_builder(params: &Parameters, wrapper: &str) -> Result<String> {
+    let mut builder = format!("{{ {}: [.{}[] ", wrapper, wrapper);
 
     if let Some(fields) = parse_fields(params).await {
         let f = format!("| {{ {} }} ", fields);
@@ -52,6 +57,7 @@ async fn parameter_builder(params: &Parameters) -> Result<String> {
         let f = format!("| sort_by(.{}) ", sort);
         builder.push_str(&f);
     }
+    builder.push_str("} ");
 
     log::debug!("parameter jq builder: {}", builder);
     Ok(builder)

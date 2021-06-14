@@ -10,11 +10,13 @@ pub enum ServerError {
     Time(std::time::SystemTimeError),
     Jwt(jsonwebtoken::errors::Error),
     Regex(regex::Error),
+    Json(serde_json::Error),
     InvalidLogin,
     NoAuthorizedScopes,
     NoPermission,
     NoBearerToken,
     NoRecordDeleted,
+    NoContent,
     InvalidFilterField,
     InvalidParameters,
     InvalidBlankSelectionField,
@@ -28,11 +30,13 @@ impl fmt::Display for ServerError {
             ServerError::Time(ref e) => e.fmt(f),
             ServerError::Jwt(ref e) => e.fmt(f),
             ServerError::Regex(ref e) => e.fmt(f),
+            ServerError::Json(ref e) => e.fmt(f),
             ServerError::InvalidLogin => write!(f, "Invalid username/password"),
             ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
             ServerError::NoPermission => write!(f, "Incorrect scopes to access this resource"),
             ServerError::NoBearerToken => write!(f, "No bearer token found"),
             ServerError::NoRecordDeleted => write!(f, "No Record to delete"),
+            ServerError::NoContent => write!(f, "No Content"),
             ServerError::InvalidFilterField => write!(f, "Invalid filter composition"),
             ServerError::InvalidParameters => write!(f, "Invalid parameter composition"),
             ServerError::InvalidBlankSelectionField => write!(f, "Invalid field composition"),
@@ -48,6 +52,7 @@ impl error::Error for ServerError {
             ServerError::Time(ref e) => Some(e),
             ServerError::Jwt(ref e) => Some(e),
             ServerError::Regex(ref e) => Some(e),
+            ServerError::Json(ref e) => Some(e),
             _ => None,
         }
     }
@@ -80,6 +85,12 @@ impl From<jsonwebtoken::errors::Error> for ServerError {
 impl From<regex::Error> for ServerError {
     fn from(err: regex::Error) -> ServerError {
         ServerError::Regex(err)
+    }
+}
+
+impl From<serde_json::Error> for ServerError {
+    fn from(err: serde_json::Error) -> ServerError {
+        ServerError::Json(err)
     }
 }
 

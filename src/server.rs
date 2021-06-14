@@ -17,6 +17,61 @@ pub(crate) struct State {
     db: sqlx::SqlitePool,
 }
 
+/// Creates a GET endpoint function
+/// $name takes the name of the function to generate as well as the matching DB req function
+/// $object takes the name of the top level json object within the collection { "myObject": [{}] }
+/// $wrapper takes the name of the top level json object as a string for JQ to use in querying
+macro_rules! create_get_endpoint {
+    ($name:ident, $object:ident, $wrapper:literal) => {
+        async fn $name(req: Request<State>) -> tide::Result {
+            let params = req.query()?;
+            let data = db::$name(&req.state().db).await?;
+            let links = params::link_header_builder(&req, &params, data.$object.len()).await;
+            let output =
+                params::apply_parameters(&json!(data).to_string(), &params, $wrapper).await?;
+            Ok(tide::Response::builder(200)
+                .header("link", links)
+                .content_type(mime::JSON)
+                .body(output)
+                .build())
+        }
+    };
+}
+
+create_get_endpoint!(get_all_classes, classes, "classes");
+create_get_endpoint!(
+    get_all_academic_sessions,
+    academic_sessions,
+    "academicSessions"
+);
+create_get_endpoint!(get_all_periods, periods, "periods");
+create_get_endpoint!(get_all_orgs, orgs, "orgs");
+create_get_endpoint!(get_all_users, users, "users");
+create_get_endpoint!(get_all_subjects, subjects, "subjects");
+create_get_endpoint!(get_all_courses, courses, "courses");
+create_get_endpoint!(get_all_enrollments, enrollments, "enrollments");
+// enrollment
+
+macro_rules! create_put_endpoint {
+    ($i:ident) => {
+        async fn $i(mut req: Request<State>) -> tide::Result {
+            let json = to_vec(&mut req).await?;
+            log::debug!("put request for: {:?}", json);
+            db::$i(json, &req.state().db).await?;
+            Ok(tide::Response::builder(200).build())
+        }
+    };
+}
+
+create_put_endpoint!(put_academic_sessions);
+create_put_endpoint!(put_periods);
+create_put_endpoint!(put_orgs);
+create_put_endpoint!(put_users);
+create_put_endpoint!(put_subjects);
+create_put_endpoint!(put_courses);
+create_put_endpoint!(put_classes);
+create_put_endpoint!(put_enrollments);
+
 pub async fn run() -> tide::Result<()> {
     env_logger::init();
     let hello = "hello";
@@ -40,6 +95,19 @@ pub async fn run() -> tide::Result<()> {
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
+    // test
+    srv.at("/orgs").get(get_all_orgs).put(put_orgs);
+    srv.at("/classes").get(get_all_classes).put(put_classes);
+    srv.at("/academicSessions")
+        .get(get_all_academic_sessions)
+        .put(put_academic_sessions);
+    srv.at("/periods").get(get_all_periods).put(put_periods);
+    srv.at("/subjects").get(get_all_subjects).put(put_subjects);
+    srv.at("/courses").get(get_all_courses).put(put_courses);
+    srv.at("/users").get(get_all_users).put(put_users);
+    srv.at("/enrollments")
+        .get(get_all_enrollments)
+        .put(put_enrollments);
 
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![
@@ -49,10 +117,12 @@ pub async fn run() -> tide::Result<()> {
     authsrv
         .at("/")
         .get(|_| async { Ok("hello protected world\n") });
+    /*
     authsrv
         .at("/academicSessions")
         .get(get_all_academic_sessions);
-    authsrv.at("/academicSessions").put(put_academic_sesions);
+    */
+    authsrv.at("/academicSessions").put(put_academic_sessions);
     let mut adminsrv = tide::with_state(srv.state().clone());
     adminsrv.with(auth::middleware::Jwt::new(vec!["admin".to_string()]));
     adminsrv.at("/users").get(get_api_users);
@@ -71,6 +141,16 @@ pub struct Creds {
     client_id: String,
     client_secret: String,
     scope: String,
+}
+
+//async fn to_vec<T>(req: &mut Request<State>) -> Result<Vec<T>>
+async fn to_vec<T>(req: &mut Request<State>) -> Result<T>
+where
+    for<'a> T: Deserialize<'a>,
+{
+    let s = req.body_string().await.unwrap();
+    let v = serde_json::from_str(&s)?;
+    Ok(v)
 }
 
 async fn login(mut req: tide::Request<State>) -> tide::Result {
@@ -95,24 +175,6 @@ async fn delete_api_user(req: tide::Request<State>) -> tide::Result {
 async fn get_api_users(req: tide::Request<State>) -> tide::Result {
     let res = db::get_api_users("1".to_string(), "1".to_string(), &req.state().db).await?;
     Ok(tide::Response::builder(200).body(json!(res)).build())
-}
-async fn put_academic_sesions(mut req: Request<State>) -> tide::Result {
-    let j: Vec<model::AcademicSession> = req.body_json().await?;
-    log::debug!("put req for: {:?}", j);
-    db::put_academic_sessions(j, &req.state().db).await?;
-    Ok(tide::Response::builder(200).build())
-}
-
-async fn get_all_academic_sessions(req: Request<State>) -> tide::Result {
-    let params = req.query()?;
-    let data = db::get_all_academic_sessions(&req.state().db, &params).await?;
-    let links = params::link_header_builder(&req, &params, data.len()).await;
-    let output = params::apply_parameters(&json!(data).to_string(), &params).await?;
-    Ok(tide::Response::builder(200)
-        .header("link", links)
-        .content_type(mime::JSON)
-        .body(output)
-        .build())
 }
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
