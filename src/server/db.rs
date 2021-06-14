@@ -40,11 +40,7 @@ pub(super) async fn get_api_creds(
     Ok(res)
 }
 
-pub(super) async fn get_api_users(
-    fcol: String,
-    fval: String,
-    db: &sqlx::SqlitePool,
-) -> Result<Vec<UserList>> {
+pub(super) async fn get_api_users(db: &sqlx::SqlitePool) -> Result<Vec<UserList>> {
     let rows = sqlx::query_as!(
         UserList,
         r#"
@@ -57,13 +53,10 @@ pub(super) async fn get_api_users(
             INNER JOIN credential_scopes cs ON c.id = cs.credential_id
             INNER JOIN scopes s ON cs.scope_id = s.id
         WHERE
-            ? = ?
-            AND scope IS NOT NULL
+            scope IS NOT NULL
         GROUP BY 
             c.client_id
         "#,
-        fcol,
-        fval,
     )
     .fetch_all(db)
     .await?;
@@ -257,30 +250,56 @@ create_put_db!(
     enrollments
 );
 
-pub(super) async fn init(path: &str) -> Result<sqlx::Pool<sqlx::Sqlite>> {
-    init_db(path).await?;
+pub(super) async fn init(path: &str, create: bool) -> Result<sqlx::Pool<sqlx::Sqlite>> {
+    init_db(path, create).await?;
     let pool = connect(path).await?;
-    init_schema(&pool).await?;
+    if create {
+        init_schema(&pool).await?;
+        init_admin(&pool).await?;
+    }
     Ok(pool)
 }
 
-pub(super) async fn init_db(path: &str) -> Result<()> {
+async fn init_db(path: &str, create: bool) -> Result<()> {
     log::info!("seeking database...");
     let exist = sqlx::Sqlite::database_exists(path).await?;
     if exist {
         log::info!("found existing database");
-    } else {
+    } else if create {
         log::info!("no existing database, creating...");
         sqlx::Sqlite::create_database(path).await?;
-    };
+    } else {
+        log::info!("no existing database found, exiting...");
+        return Err(ServerError::NoDatabaseFound);
+    }
     Ok(())
 }
 
-pub(super) async fn init_schema(pool: &sqlx::SqlitePool) -> Result<()> {
+async fn init_schema(pool: &sqlx::SqlitePool) -> Result<()> {
     let mut t = pool.begin().await?;
     sqlx::query_file!("db/schema.sql").execute(&mut t).await?;
     sqlx::query_file!("db/init.sql").execute(&mut t).await?;
     t.commit().await?;
+    Ok(())
+}
+
+async fn init_admin(pool: &sqlx::SqlitePool) -> Result<()> {
+    let exists = get_api_users(pool).await?.is_empty();
+    if exists {
+        let user = CreateApiUser {
+            tag: "root admin".to_string(),
+            scope: "admin.readonly roster-core.readonly roster-core.createput".to_string(),
+        };
+        let account = create_api_user(user, pool).await?;
+        println!(
+            "The root admin account is shown below, \
+            this will never be provided again so please store these details securely. \
+            \n\nclient_id: {} \
+            \nclient_secret: {} \
+            \nscope: {}",
+            account.client_id, account.client_secret, account.scope
+        );
+    }
     Ok(())
 }
 

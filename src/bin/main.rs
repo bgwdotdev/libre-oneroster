@@ -1,4 +1,5 @@
 use async_std::task;
+use clap;
 use libre_oneroster::{client, server};
 
 fn main() {
@@ -30,14 +31,31 @@ fn main() {
                 ),
         )
         .subcommand(
-            clap::App::new("server").arg(
-                clap::Arg::new("port")
-                    .about("port to bind server to")
-                    .short('p')
-                    .long("port")
-                    .takes_value(true)
-                    .default_value("8080"),
-            ),
+            clap::App::new("server")
+                .arg(
+                    clap::Arg::new("socket_address")
+                        .about("address to bind server to")
+                        .short('a')
+                        .long("address")
+                        .takes_value(true)
+                        .value_name("IP:PORT")
+                        .default_value("127.0.0.1:8080"),
+                )
+                .arg(
+                    clap::Arg::new("init")
+                        .about("initializes the database and provides admin credentials")
+                        .long("init")
+                        .takes_value(false),
+                )
+                .arg(
+                    clap::Arg::new("database")
+                        .about("Path to the database file")
+                        .short('d')
+                        .long("database")
+                        .takes_value(true)
+                        .value_name("PATH")
+                        .default_value("oneroster.db"),
+                ),
         )
         .get_matches();
 
@@ -50,7 +68,15 @@ fn main() {
             };
             task::block_on(client::run(conf)).unwrap();
         }
-        Some(("server", _a)) => task::block_on(server::run()).unwrap(),
+        Some(("server", args)) => {
+            let c = server::Config {
+                database: args.value_of_t("database").unwrap(),
+                init: args.is_present("init"),
+                socket_address: args.value_of_t("socket_address").unwrap(),
+            };
+
+            task::block_on(server::run(c)).unwrap();
+        }
         _ => {}
     }
 }
