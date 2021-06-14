@@ -20,6 +20,7 @@ pub enum ServerError {
     InvalidFilterField,
     InvalidParameters,
     InvalidBlankSelectionField,
+    NoDatabaseFound,
 }
 
 impl fmt::Display for ServerError {
@@ -40,6 +41,9 @@ impl fmt::Display for ServerError {
             ServerError::InvalidFilterField => write!(f, "Invalid filter composition"),
             ServerError::InvalidParameters => write!(f, "Invalid parameter composition"),
             ServerError::InvalidBlankSelectionField => write!(f, "Invalid field composition"),
+            ServerError::NoDatabaseFound => {
+                write!(f, "No database found, check path or use --init to create")
+            }
         }
     }
 }

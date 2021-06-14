@@ -72,13 +72,20 @@ create_put_endpoint!(put_courses);
 create_put_endpoint!(put_classes);
 create_put_endpoint!(put_enrollments);
 
-pub async fn run() -> tide::Result<()> {
-    env_logger::init();
-    let hello = "hello";
-    log::info!("starting server: {}", hello);
+#[derive(Debug)]
+pub struct Config {
+    pub database: String,
+    pub init: bool,
+    pub socket_address: std::net::SocketAddr,
+}
 
-    let path = "sqlite:db/oneroster.db";
-    let pool = match db::init(path).await {
+pub async fn run(config: Config) -> tide::Result<()> {
+    env_logger::init();
+    log::info!("starting server...");
+    log::info!("configuration: {:?}", config);
+
+    let path = "sqlite:".to_owned() + &config.database;
+    let pool = match db::init(&path, config.init).await {
         Ok(pool) => pool,
         Err(e) => {
             log::error!("Error: could not start server: {}", e);
@@ -87,28 +94,14 @@ pub async fn run() -> tide::Result<()> {
     };
 
     let state = State { db: pool };
-    let url_port = "localhost:8080";
     let mut srv = tide::with_state(state);
 
     srv.with(After(errors::middleware::ApiError::new()));
-    log::info!("ready on: {}", url_port);
+    log::info!("ready on: {}", &config.socket_address);
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
-    // test
-    srv.at("/orgs").get(get_all_orgs).put(put_orgs);
-    srv.at("/classes").get(get_all_classes).put(put_classes);
-    srv.at("/academicSessions")
-        .get(get_all_academic_sessions)
-        .put(put_academic_sessions);
-    srv.at("/periods").get(get_all_periods).put(put_periods);
-    srv.at("/subjects").get(get_all_subjects).put(put_subjects);
-    srv.at("/courses").get(get_all_courses).put(put_courses);
-    srv.at("/users").get(get_all_users).put(put_users);
-    srv.at("/enrollments")
-        .get(get_all_enrollments)
-        .put(put_enrollments);
-
+    // oneroster
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![
         "roster-core".to_string(),
@@ -117,12 +110,24 @@ pub async fn run() -> tide::Result<()> {
     authsrv
         .at("/")
         .get(|_| async { Ok("hello protected world\n") });
-    /*
+    authsrv.at("/orgs").get(get_all_orgs).put(put_orgs);
+    authsrv.at("/classes").get(get_all_classes).put(put_classes);
     authsrv
         .at("/academicSessions")
-        .get(get_all_academic_sessions);
-    */
-    authsrv.at("/academicSessions").put(put_academic_sessions);
+        .get(get_all_academic_sessions)
+        .put(put_academic_sessions);
+    authsrv.at("/periods").get(get_all_periods).put(put_periods);
+    authsrv
+        .at("/subjects")
+        .get(get_all_subjects)
+        .put(put_subjects);
+    authsrv.at("/courses").get(get_all_courses).put(put_courses);
+    authsrv.at("/users").get(get_all_users).put(put_users);
+    authsrv
+        .at("/enrollments")
+        .get(get_all_enrollments)
+        .put(put_enrollments);
+    // user management
     let mut adminsrv = tide::with_state(srv.state().clone());
     adminsrv.with(auth::middleware::Jwt::new(vec!["admin".to_string()]));
     adminsrv.at("/users").get(get_api_users);
@@ -131,12 +136,12 @@ pub async fn run() -> tide::Result<()> {
 
     srv.at("/admin").nest(adminsrv);
     srv.at("/ims/oneroster/v1p1").nest(authsrv);
-    srv.listen(url_port).await?;
+    srv.listen(config.socket_address).await?;
     Ok(())
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+//#[serde(rename_all = "camelCase")]
 pub struct Creds {
     client_id: String,
     client_secret: String,
@@ -154,6 +159,7 @@ where
 }
 
 async fn login(mut req: tide::Request<State>) -> tide::Result {
+    log::debug!("login request");
     let creds: Creds = req.body_form().await?;
     log::info!("login attempt from: {}", creds.client_id);
     let token = auth::credentials::login(creds, &req.state().db).await?;
@@ -173,7 +179,7 @@ async fn delete_api_user(req: tide::Request<State>) -> tide::Result {
 }
 
 async fn get_api_users(req: tide::Request<State>) -> tide::Result {
-    let res = db::get_api_users("1".to_string(), "1".to_string(), &req.state().db).await?;
+    let res = db::get_api_users(&req.state().db).await?;
     Ok(tide::Response::builder(200).body(json!(res)).build())
 }
 
@@ -190,9 +196,8 @@ async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
 #[async_std::test]
 async fn db() -> Result<()> {
     let path = "sqlite:db/rust_test.db";
-    db::init(path).await?;
+    db::init(path, true).await?;
     let pool = db::connect(path).await?;
-    db::init_schema(&pool).await?;
 
     sqlx::query(
         r#"INSERT INTO academicSessions (sourcedId, data) values (
