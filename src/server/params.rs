@@ -53,6 +53,9 @@ async fn parameter_builder(params: &Parameters, wrapper: &str) -> Result<String>
 
     builder.push_str("] ");
 
+    let pagination = format!("| .[{}:{}]", params.offset, params.offset + params.limit);
+    builder.push_str(&pagination);
+
     if let Some(sort) = parse_sort(params).await {
         let f = format!("| sort_by(.{}) ", sort);
         builder.push_str(&f);
