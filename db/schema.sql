@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS AcademicSessions (
     , "endDate" text NOT NULL
     , "sessionTypeId" integer NOT NULL
     , "parentSourcedId" text
-    , "schoolYear" integer -- YYYY
+    , "schoolYear" text -- YYYY
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (sessionTypeId) REFERENCES SessionType (id)
     , FOREIGN KEY (parentSourcedId) REFERENCES AcademicSessions (sourcedId)

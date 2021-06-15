@@ -40,7 +40,7 @@ pub struct AcademicSession {
     pub academic_session_type: SessionType,
     pub parent: Option<GUIDRef>,
     pub children: Option<Vec<GUIDRef>>,
-    pub school_year: i32,
+    pub school_year: String,
 }
 
 #[skip_serializing_none]
