@@ -722,7 +722,7 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
                 , json_group_array(json_object(
                     'href', 'orgs/' || UserOrgs.orgSourcedId
                     , 'sourcedId', UserOrgs.orgSourcedId
-                    , 'type', 'user'
+                    , 'type', 'org'
                 )) AS orgs
             FROM UserOrgs
             WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )
