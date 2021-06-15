@@ -28,17 +28,18 @@ pub(crate) async fn apply_parameters(
     json: &String,
     params: &Parameters,
     wrapper: &str,
-) -> Result<String> {
-    let q = parameter_builder(&params, wrapper).await?;
-    let output = jq_rs::run(&q, &json).map_err(|e| {
+) -> Result<(String, String)> {
+    let (query, length) = parameter_builder(&params, wrapper).await?;
+    let output = jq_rs::run(&query, &json).map_err(|e| {
         log::debug!("{}", json);
-        log::debug!("jq error: {}: query: {}", e, q);
+        log::debug!("jq error: {}: query: {}", e, query);
         ServerError::InvalidParameters
     })?;
-    Ok(output)
+    let total = jq_rs::run(&length, &json).map_err(|_| ServerError::InvalidParameters)?;
+    Ok((output, total))
 }
 
-async fn parameter_builder(params: &Parameters, wrapper: &str) -> Result<String> {
+async fn parameter_builder(params: &Parameters, wrapper: &str) -> Result<(String, String)> {
     let mut builder = format!("{{ {}: [.{}[] ", wrapper, wrapper);
 
     if let Some(fields) = parse_fields(params).await {
@@ -52,6 +53,8 @@ async fn parameter_builder(params: &Parameters, wrapper: &str) -> Result<String>
     }
 
     builder.push_str("] ");
+    let mut len: String = builder.clone();
+    len.push_str(&format!("| length }} | .{}", wrapper));
 
     let pagination = format!("| .[{}:{}]", params.offset, params.offset + params.limit);
     builder.push_str(&pagination);
@@ -63,7 +66,7 @@ async fn parameter_builder(params: &Parameters, wrapper: &str) -> Result<String>
     builder.push_str("} ");
 
     log::debug!("parameter jq builder: {}", builder);
-    Ok(builder)
+    Ok((builder, len))
 }
 
 async fn parse_sort(params: &Parameters) -> Option<String> {

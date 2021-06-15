@@ -27,10 +27,11 @@ macro_rules! create_get_endpoint {
             let params = req.query()?;
             let data = db::$name(&req.state().db).await?;
             let links = params::link_header_builder(&req, &params, data.$object.len()).await;
-            let output =
+            let (output, total) =
                 params::apply_parameters(&json!(data).to_string(), &params, $wrapper).await?;
             Ok(tide::Response::builder(200)
                 .header("link", links)
+                .header("x-total-count", total.trim())
                 .content_type(mime::JSON)
                 .body(output)
                 .build())
