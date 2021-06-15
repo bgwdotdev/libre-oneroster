@@ -55,6 +55,22 @@ fn main() {
                         .takes_value(true)
                         .value_name("PATH")
                         .default_value("oneroster.db"),
+                )
+                .arg(
+                    clap::Arg::new("private_key")
+                        .about("path to the pem encoded private key used to encode the JWT")
+                        .long("private-key")
+                        .takes_value(true)
+                        .value_name("PATH")
+                        .required(true),
+                )
+                .arg(
+                    clap::Arg::new("public_key")
+                        .about("path to the pem encoded public key used to decode the JWT")
+                        .long("public-key")
+                        .takes_value(true)
+                        .value_name("PATH")
+                        .required(true),
                 ),
         )
         .get_matches();
@@ -73,8 +89,10 @@ fn main() {
                 database: args.value_of_t("database").unwrap(),
                 init: args.is_present("init"),
                 socket_address: args.value_of_t("socket_address").unwrap(),
+                encode_key: server::read_private_key(args.value_of("private_key").unwrap())
+                    .unwrap(),
+                decode_key: server::read_public_key(args.value_of("public_key").unwrap()).unwrap(),
             };
-
             task::block_on(server::run(c)).unwrap();
         }
         _ => {}
