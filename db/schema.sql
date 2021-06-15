@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS AcademicSessions (
     , "endDate" text NOT NULL
     , "sessionTypeId" integer NOT NULL
     , "parentSourcedId" text
-    , "schoolYear" integer -- YYYY
+    , "schoolYear" text -- YYYY
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (sessionTypeId) REFERENCES SessionType (id)
     , FOREIGN KEY (parentSourcedId) REFERENCES AcademicSessions (sourcedId)
@@ -722,7 +722,7 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
                 , json_group_array(json_object(
                     'href', 'orgs/' || UserOrgs.orgSourcedId
                     , 'sourcedId', UserOrgs.orgSourcedId
-                    , 'type', 'user'
+                    , 'type', 'org'
                 )) AS orgs
             FROM UserOrgs
             WHERE statusTypeId = ( SELECT id FROM StatusType WHERE token = 'active' )

@@ -57,14 +57,20 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
                 }
                 ServerError::Sqlx(ref e) => {
                     // TODO: handle errors for FK constraints?
-                    log::error!("API sql error: {}", e);
+                    log::error!("API sql error: {:?}", e);
                     let ep = ErrorPayload {
                         code_major: CodeMajor::Failure,
-                        code_minor: CodeMinor::Forbidden, // None?
-                        description: None,
+                        code_minor: CodeMinor::InvalidData, // None?
+                        description: Some(
+                            "Data rejected, try verifying parent \
+                            hierarchy insert order \
+                            (parent>child over child>parent) \
+                            or consult server logs for detailed error"
+                                .to_string(),
+                        ),
                         severity: Severity::Error,
                     };
-                    r.set_status(500);
+                    r.set_status(400);
                     r.set_body(json!(ep));
                 }
                 ServerError::Bcrypt(ref e) => {
