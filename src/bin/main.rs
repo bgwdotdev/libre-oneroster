@@ -1,10 +1,23 @@
 use async_std::task;
 use clap;
+use libre_oneroster::server::ServerError;
 use libre_oneroster::{client, server};
 
 fn main() {
+    env_logger::init();
+    match cli() {
+        Ok(_) => (),
+        Err(err) => match err {
+            ServerError::Io(ref e) => log::error!("File error: {}", e),
+            _ => println!("placeholder: {}", err),
+        },
+    }
+}
+
+fn cli() -> Result<(), ServerError> {
     let matches = clap::App::new("libre-oneroster")
         .version("0.0.1")
+        .setting(clap::AppSettings::ArgRequiredElseHelp)
         .subcommand(
             clap::App::new("client")
                 .arg(
@@ -32,6 +45,7 @@ fn main() {
         )
         .subcommand(
             clap::App::new("server")
+                .about("Starts the oneroster server")
                 .arg(
                     clap::Arg::new("socket_address")
                         .about("address to bind server to")
@@ -83,18 +97,29 @@ fn main() {
                 client_secret: cm.value_of("clientsecret").unwrap().to_string(),
             };
             task::block_on(client::run(conf)).unwrap();
+            Ok(())
         }
         Some(("server", args)) => {
+            let encode_key = server::read_private_key(args.value_of("private_key").unwrap())
+                .map_err(|e| {
+                    log::error!("Problem reading private key");
+                    e
+                })?;
+            let decode_key = server::read_public_key(args.value_of("public_key").unwrap())
+                .map_err(|e| {
+                    log::error!("Problem reading public key");
+                    e
+                })?;
             let c = server::Config {
                 database: args.value_of_t("database").unwrap(),
                 init: args.is_present("init"),
                 socket_address: args.value_of_t("socket_address").unwrap(),
-                encode_key: server::read_private_key(args.value_of("private_key").unwrap())
-                    .unwrap(),
-                decode_key: server::read_public_key(args.value_of("public_key").unwrap()).unwrap(),
+                encode_key,
+                decode_key,
             };
             task::block_on(server::run(c)).unwrap();
+            Ok(())
         }
-        _ => {}
+        _ => Ok(()),
     }
 }

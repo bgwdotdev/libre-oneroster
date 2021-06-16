@@ -1,10 +1,10 @@
 mod auth;
 mod db;
-mod errors;
+pub mod errors;
 mod params;
 
 use crate::model;
-use errors::*;
+pub use errors::*;
 use http_types::mime;
 use std::fs::File;
 use std::io::prelude::*;
@@ -87,9 +87,8 @@ pub struct Config {
 }
 
 pub async fn run(config: Config) -> tide::Result<()> {
-    env_logger::init();
     log::info!("starting server...");
-    log::info!("configuration: {:?}", config);
+    log::debug!("configuration: {:?}", config);
 
     let path = "sqlite:".to_owned() + &config.database;
     let pool = match db::init(&path, config.init).await {
