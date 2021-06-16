@@ -1,5 +1,7 @@
 use crate::server::Result;
 use jsonwebtoken;
+use std::fs::File;
+use std::io::prelude::*;
 use std::time::SystemTime;
 use tide::prelude::*;
 
@@ -15,23 +17,6 @@ pub(crate) struct Claims {
 // resource.readonly gradebook.readonly gradebook.createput gradebook.delete
 // admin.readonly admin.create admin.delete
 
-// TODO: get keys from user
-lazy_static::lazy_static! {
-    static ref JWT_ENCODE_KEY: jsonwebtoken::EncodingKey = {
-        jsonwebtoken::EncodingKey::from_rsa_pem(include_bytes!("../../../certs/localhost.key.pem"))
-            .expect("Problem loading private key")
-    };
-    // jwt crate doesn't support x509 so must extract pub key with openssl, see:
-    // https://github.com/Keats/jsonwebtoken/issues/127
-    static ref JWT_DECODE_KEY: jsonwebtoken::DecodingKey = {
-        let cert = openssl::x509::X509::from_pem(include_bytes!("../../../certs/localhost.pem"))
-            .expect("problem loading pub pem");
-        let pem = cert.public_key().unwrap().rsa().unwrap().public_key_to_pem().unwrap();
-        let pubkey = jsonwebtoken::DecodingKey::from_rsa_pem(&pem).unwrap();
-        return pubkey;
-    };
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct TokenReturn {
     access_token: String,
@@ -40,7 +25,11 @@ pub(crate) struct TokenReturn {
     scope: String,
 }
 
-pub(crate) async fn create_token(id: String, scope: String) -> Result<TokenReturn> {
+pub(crate) async fn create_token(
+    id: String,
+    scope: String,
+    encode_key: &jsonwebtoken::EncodingKey,
+) -> Result<TokenReturn> {
     let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
     let exp_in: u64 = 3600;
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
@@ -51,7 +40,7 @@ pub(crate) async fn create_token(id: String, scope: String) -> Result<TokenRetur
         sub: id,
         scope: scope.clone(),
     };
-    let token = jsonwebtoken::encode(&header, &claims, &JWT_ENCODE_KEY)?;
+    let token = jsonwebtoken::encode(&header, &claims, &encode_key)?;
     log::debug!("creating token:\n{}", &token);
     let result = TokenReturn {
         access_token: token,
@@ -62,18 +51,21 @@ pub(crate) async fn create_token(id: String, scope: String) -> Result<TokenRetur
     Ok(result)
 }
 
-pub(crate) async fn decode_token(token: String) -> Result<jsonwebtoken::TokenData<Claims>> {
+pub(crate) async fn decode_token(
+    token: String,
+    key: &jsonwebtoken::DecodingKey,
+) -> Result<jsonwebtoken::TokenData<Claims>> {
     let val = jsonwebtoken::Validation {
         algorithms: vec![jsonwebtoken::Algorithm::RS256],
         ..Default::default()
     };
-    let claims = jsonwebtoken::decode::<Claims>(&token, &JWT_DECODE_KEY, &val)?;
+    let claims = jsonwebtoken::decode::<Claims>(&token, key, &val)?;
     Ok(claims)
 }
 
-pub(crate) async fn validate_token(token: String) -> bool {
+pub(crate) async fn validate_token(token: String, key: &jsonwebtoken::DecodingKey) -> bool {
     log::debug!("validating token:\n{}", token);
-    match decode_token(token).await {
+    match decode_token(token, key).await {
         Ok(t) => {
             log::debug!("validated:\n{:?}", t);
             true

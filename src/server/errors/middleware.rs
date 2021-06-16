@@ -135,6 +135,9 @@ impl tide::Middleware<server::State> for tide::utils::After<ApiError> {
                 ServerError::NoDatabaseFound => {
                     r.set_status(500);
                 }
+                _ => {
+                    r.set_status(500);
+                }
             }
         };
         Ok(r)

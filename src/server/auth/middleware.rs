@@ -16,7 +16,7 @@ impl Jwt {
 impl tide::Middleware<State> for Jwt {
     async fn handle(&self, req: tide::Request<State>, next: tide::Next<'_, State>) -> tide::Result {
         let token = parse_auth_header(&req)
-            .and_then(|t| async { auth::jwt::decode_token(t).await })
+            .and_then(|t| async { auth::jwt::decode_token(t, &req.state().decode_key).await })
             .await?;
         parse_permission(&self.scope, req.method(), &token.claims.scope).await?;
         Ok(next.run(req).await)

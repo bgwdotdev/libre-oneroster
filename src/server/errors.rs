@@ -11,6 +11,8 @@ pub enum ServerError {
     Jwt(jsonwebtoken::errors::Error),
     Regex(regex::Error),
     Json(serde_json::Error),
+    Io(std::io::Error),
+    OpenSsl(openssl::error::ErrorStack),
     InvalidLogin,
     NoAuthorizedScopes,
     NoPermission,
@@ -32,6 +34,8 @@ impl fmt::Display for ServerError {
             ServerError::Jwt(ref e) => e.fmt(f),
             ServerError::Regex(ref e) => e.fmt(f),
             ServerError::Json(ref e) => e.fmt(f),
+            ServerError::Io(ref e) => e.fmt(f),
+            ServerError::OpenSsl(ref e) => e.fmt(f),
             ServerError::InvalidLogin => write!(f, "Invalid username/password"),
             ServerError::NoAuthorizedScopes => write!(f, "No scopes were authorized for use"),
             ServerError::NoPermission => write!(f, "Incorrect scopes to access this resource"),
@@ -57,46 +61,31 @@ impl error::Error for ServerError {
             ServerError::Jwt(ref e) => Some(e),
             ServerError::Regex(ref e) => Some(e),
             ServerError::Json(ref e) => Some(e),
+            ServerError::Io(ref e) => Some(e),
+            ServerError::OpenSsl(ref e) => Some(e),
             _ => None,
         }
     }
 }
 
-impl From<sqlx::Error> for ServerError {
-    fn from(err: sqlx::Error) -> ServerError {
-        ServerError::Sqlx(err)
-    }
+macro_rules! into_error {
+    ($from:ty, $to:expr) => {
+        impl From<$from> for ServerError {
+            fn from(err: $from) -> ServerError {
+                $to(err)
+            }
+        }
+    };
 }
 
-impl From<bcrypt::BcryptError> for ServerError {
-    fn from(err: bcrypt::BcryptError) -> ServerError {
-        ServerError::Bcrypt(err)
-    }
-}
-
-impl From<std::time::SystemTimeError> for ServerError {
-    fn from(err: std::time::SystemTimeError) -> ServerError {
-        ServerError::Time(err)
-    }
-}
-
-impl From<jsonwebtoken::errors::Error> for ServerError {
-    fn from(err: jsonwebtoken::errors::Error) -> ServerError {
-        ServerError::Jwt(err)
-    }
-}
-
-impl From<regex::Error> for ServerError {
-    fn from(err: regex::Error) -> ServerError {
-        ServerError::Regex(err)
-    }
-}
-
-impl From<serde_json::Error> for ServerError {
-    fn from(err: serde_json::Error) -> ServerError {
-        ServerError::Json(err)
-    }
-}
+into_error!(std::io::Error, ServerError::Io);
+into_error!(openssl::error::ErrorStack, ServerError::OpenSsl);
+into_error!(sqlx::Error, ServerError::Sqlx);
+into_error!(bcrypt::BcryptError, ServerError::Bcrypt);
+into_error!(std::time::SystemTimeError, ServerError::Time);
+into_error!(jsonwebtoken::errors::Error, ServerError::Jwt);
+into_error!(regex::Error, ServerError::Regex);
+into_error!(serde_json::Error, ServerError::Json);
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]

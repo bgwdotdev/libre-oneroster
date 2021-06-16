@@ -1,11 +1,13 @@
 mod auth;
 mod db;
-mod errors;
+pub mod errors;
 mod params;
 
 use crate::model;
-use errors::*;
+pub use errors::*;
 use http_types::mime;
+use std::fs::File;
+use std::io::prelude::*;
 use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
@@ -15,6 +17,8 @@ type Result<T> = std::result::Result<T, ServerError>;
 #[derive(Clone)]
 pub(crate) struct State {
     db: sqlx::SqlitePool,
+    encode_key: jsonwebtoken::EncodingKey,
+    decode_key: jsonwebtoken::DecodingKey,
 }
 
 /// Creates a GET endpoint function
@@ -78,12 +82,13 @@ pub struct Config {
     pub database: String,
     pub init: bool,
     pub socket_address: std::net::SocketAddr,
+    pub encode_key: jsonwebtoken::EncodingKey,
+    pub decode_key: jsonwebtoken::DecodingKey,
 }
 
 pub async fn run(config: Config) -> tide::Result<()> {
-    env_logger::init();
     log::info!("starting server...");
-    log::info!("configuration: {:?}", config);
+    log::debug!("configuration: {:?}", config);
 
     let path = "sqlite:".to_owned() + &config.database;
     let pool = match db::init(&path, config.init).await {
@@ -94,7 +99,11 @@ pub async fn run(config: Config) -> tide::Result<()> {
         }
     };
 
-    let state = State { db: pool };
+    let state = State {
+        db: pool,
+        encode_key: config.encode_key,
+        decode_key: config.decode_key,
+    };
     let mut srv = tide::with_state(state);
 
     srv.with(After(errors::middleware::ApiError::new()));
@@ -163,7 +172,7 @@ async fn login(mut req: tide::Request<State>) -> tide::Result {
     log::debug!("login request");
     let creds: Creds = req.body_form().await?;
     log::info!("login attempt from: {}", creds.client_id);
-    let token = auth::credentials::login(creds, &req.state().db).await?;
+    let token = auth::credentials::login(creds, &req.state().db, &req.state().encode_key).await?;
     Ok(tide::Response::builder(200).body(json!(token)).build())
 }
 
@@ -186,10 +195,28 @@ async fn get_api_users(req: tide::Request<State>) -> tide::Result {
 
 async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
     let token = auth::middleware::parse_auth_header(&req).await?;
-    if auth::jwt::validate_token(token).await {
+    if auth::jwt::validate_token(token, &req.state().decode_key).await {
         return Ok("✔ Token valid\n".to_string());
     }
     Ok("✗ Token invalid\n".to_string())
+}
+
+pub fn read_private_key(path: &str) -> Result<jsonwebtoken::EncodingKey> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+    let private_key = jsonwebtoken::EncodingKey::from_rsa_pem(&buf)?;
+    Ok(private_key)
+}
+
+pub fn read_public_key(path: &str) -> Result<jsonwebtoken::DecodingKey> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+    let cert = openssl::x509::X509::from_pem(&buf)?;
+    let pem = cert.public_key()?.rsa()?.public_key_to_pem()?;
+    let public_key = jsonwebtoken::DecodingKey::from_rsa_pem(&pem)?;
+    Ok(public_key)
 }
 
 // tests

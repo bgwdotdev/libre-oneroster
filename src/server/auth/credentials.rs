@@ -9,12 +9,16 @@ pub(crate) struct NewCreds {
     pub(crate) encrypt: String,
 }
 
-pub(crate) async fn login(creds: server::Creds, db: &sqlx::SqlitePool) -> Result<jwt::TokenReturn> {
+pub(crate) async fn login(
+    creds: server::Creds,
+    db: &sqlx::SqlitePool,
+    key: &jsonwebtoken::EncodingKey,
+) -> Result<jwt::TokenReturn> {
     let compare = db::get_api_creds(&creds.client_id, db).await?;
     let verify = bcrypt::verify(&creds.client_secret, &compare.client_secret)?;
     if verify {
         let scopes = verify_scopes(&compare.scope, &creds.scope).await?;
-        let token = jwt::create_token(creds.client_id, scopes).await?;
+        let token = jwt::create_token(creds.client_id, scopes, key).await?;
         return Ok(token);
     }
     Err(server::ServerError::InvalidLogin)
