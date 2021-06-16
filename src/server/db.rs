@@ -1,6 +1,5 @@
 use crate::model;
 use crate::server::{auth, Result, ServerError};
-use model::Org;
 use sqlite::SqlitePoolOptions;
 use sqlx::{migrate::MigrateDatabase, sqlite};
 use tide::prelude::*;

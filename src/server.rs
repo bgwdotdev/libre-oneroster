@@ -3,7 +3,6 @@ mod db;
 pub mod errors;
 mod params;
 
-use crate::model;
 pub use errors::*;
 use http_types::mime;
 use std::fs::File;

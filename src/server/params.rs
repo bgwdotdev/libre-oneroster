@@ -2,7 +2,6 @@ use super::{Result, ServerError, State};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-#[serde(default)]
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Parameters {
     pub(crate) limit: u32,  // 10
