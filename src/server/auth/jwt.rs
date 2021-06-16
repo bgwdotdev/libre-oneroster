@@ -1,7 +1,5 @@
 use crate::server::Result;
 use jsonwebtoken;
-use std::fs::File;
-use std::io::prelude::*;
 use std::time::SystemTime;
 use tide::prelude::*;
 

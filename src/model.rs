@@ -2,17 +2,6 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-// Evaluates if the first item is None in a vector
-// Used to skip serializing an empty sub item in a json struct
-fn vec_is_none<T>(v: &Option<Vec<Option<T>>>) -> bool {
-    if let Some(i) = v {
-        if i[0].is_none() {
-            return true;
-        }
-    }
-    false
-}
-
 // while href and ref_type are not optional
 // in the spec output, they are for the purposes
 // of ingest. Their required state is enforced by
