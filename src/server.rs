@@ -203,26 +203,20 @@ async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
 }
 
 pub fn read_private_key(path: &str) -> Result<jsonwebtoken::EncodingKey> {
-    let mut file = File::open(path).unwrap();
+    let mut file = File::open(path)?;
     let mut buf = Vec::new();
-    file.read_to_end(&mut buf).unwrap();
-    let private_key = jsonwebtoken::EncodingKey::from_rsa_pem(&buf).unwrap();
+    file.read_to_end(&mut buf)?;
+    let private_key = jsonwebtoken::EncodingKey::from_rsa_pem(&buf)?;
     Ok(private_key)
 }
 
 pub fn read_public_key(path: &str) -> Result<jsonwebtoken::DecodingKey> {
-    let mut file = File::open(path).unwrap();
+    let mut file = File::open(path)?;
     let mut buf = Vec::new();
-    file.read_to_end(&mut buf).unwrap();
-    let cert = openssl::x509::X509::from_pem(&buf).unwrap();
-    let pem = cert
-        .public_key()
-        .unwrap()
-        .rsa()
-        .unwrap()
-        .public_key_to_pem()
-        .unwrap();
-    let public_key = jsonwebtoken::DecodingKey::from_rsa_pem(&pem).unwrap();
+    file.read_to_end(&mut buf)?;
+    let cert = openssl::x509::X509::from_pem(&buf)?;
+    let pem = cert.public_key()?.rsa()?.public_key_to_pem()?;
+    let public_key = jsonwebtoken::DecodingKey::from_rsa_pem(&pem)?;
     Ok(public_key)
 }
 
