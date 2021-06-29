@@ -29,3 +29,4 @@ bcrypt = "0.9"
 http-types = "2.10"
 jq-rs = "0.4"
 regex = "1.5"
+tiberius = { version = "0.5", features = [ "sql-browser-async-std" ] }
