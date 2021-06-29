@@ -11,7 +11,7 @@ pub struct Config {
 }
 
 pub async fn run(conf: Config) -> surf::Result<()> {
-    env_logger::init();
+    //env_logger::init();
     log::info!("run client..");
     let (client, token) = connect(conf).await?;
     get_all_academic_sessions(&client, &token).await?;
@@ -55,6 +55,22 @@ async fn get_all_academic_sessions(c: &surf::Client, token: &String) -> surf::Re
         .await?;
     log::debug!("{:?}", &r);
     println!("{}", r.body_string().await?);
+    Ok(())
+}
+
+pub async fn put_all<T>(
+    c: &surf::Client,
+    token: &String,
+    data: T,
+    endpoint: &str,
+) -> surf::Result<()>
+where
+    for<'a> T: serde::Serialize,
+{
+    c.put("ims/oneroster/v1p1/".to_owned() + endpoint)
+        .body(serde_json::json!(data).to_string())
+        .header("Authorization", "Bearer ".to_owned() + token)
+        .await?;
     Ok(())
 }
 
