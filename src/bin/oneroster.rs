@@ -95,6 +95,7 @@ fn cli() -> Result<(), ServerError> {
                 url: cm.value_of("url").unwrap().to_string(),
                 client_id: cm.value_of("clientid").unwrap().to_string(),
                 client_secret: cm.value_of("clientsecret").unwrap().to_string(),
+                scope: "admin.readonly".to_string(),
             };
             task::block_on(client::run(conf)).unwrap();
             Ok(())
