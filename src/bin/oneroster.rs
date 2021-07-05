@@ -203,7 +203,7 @@ fn cli() -> Result<(), ServerError> {
                 delta: args.value_of_t("delta").unwrap(),
                 academic_year: args.value_of_t("year").unwrap(),
             };
-            task::block_on(client::sync::wcbs_pass::sync(conf));
+            task::block_on(client::sync::wcbs_pass::sync(conf)).unwrap();
             Ok(())
         }
         _ => Ok(()),
