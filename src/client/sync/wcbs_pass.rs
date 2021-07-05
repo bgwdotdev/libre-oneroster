@@ -61,321 +61,67 @@ async fn connect_database(connection_string: &str) -> Client<TcpStream> {
     return client;
 }
 
-pub async fn sync(config: Config) {
+struct SyncConf {
+    database: tiberius::Client<TcpStream>,
+    oneroster: surf::Client,
+    token: String,
+    delta: String,
+    year: String,
+}
+
+async fn sync2<T>(config: &mut SyncConf, endpoint: &str, query: &str) -> Result<()>
+where
+    for<'a> T: serde::Deserialize<'a>,
+    T: serde::Serialize,
+{
+    log::info!("Syncing {}...", endpoint);
+    let rows = config
+        .database
+        .query(query, &[&config.delta, &config.year])
+        .await?
+        .into_first_result()
+        .await?;
+    for row in rows {
+        if let Some(data) = row.try_get::<&str, _>(endpoint)? {
+            let out: T = serde_json::from_str(&data)?;
+            client::put_all(&config.oneroster, &config.token, out, endpoint).await?;
+        }
+    }
+    Ok(())
+}
+pub async fn sync(config: Config) -> Result<()> {
     log::info!("seeking database...");
 
     //connect database
-    let mut client = connect_database(&config.database_ado_string).await;
+    let database = connect_database(&config.database_ado_string).await;
 
     //TODO: server return 403
     //connect oneroster
-    let (oneroster, token) = client::connect(config.oneroster).await.unwrap();
-
+    let (oneroster, token) = client::connect(config.oneroster).await?;
     let delta = config.delta;
     let year = config.academic_year.to_string();
-    // let rows = client.query(QUERY, &[]).await?.into_first_result()?.await?;
-    // for row in rows {
-    //      let data = row.try_get::<&str, _>("enrollments")??.to_string();
-    //      let out: model::enrollments = serde_json::from_str(&data)?;
-    //      client::put_all(&oneroster, &token, out, "enrollments").await?;
-    //      }
-    /*
-    // get data
-    let rows = client
-        .query(QUERY_ACADEMIC_SESSIONS, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
 
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("JSON_F52E2B61-18A1-11d1-B105-00805F49916B")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::AcademicSessions = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "academicSessions")
-            .await
-            .unwrap();
-    }
+    let mut sync_conf = SyncConf {
+        database,
+        oneroster,
+        token,
+        delta,
+        year,
+    };
 
-    let rows = client
-        //.query("SELECT * FROM passmain.dbo.year", &[])
-        .query(QUERY_ORGS, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
+    sync2::<model::AcademicSessions>(&mut sync_conf, "academicSessions", QUERY_ACADEMIC_SESSIONS)
+        .await?;
+    sync2::<model::Orgs>(&mut sync_conf, "orgs", QUERY_ORGS).await?;
+    sync2::<model::Subjects>(&mut sync_conf, "subjects", QUERY_SUBJECTS).await?;
+    sync2::<model::Periods>(&mut sync_conf, "periods", QUERY_PERIODS).await?;
+    sync2::<model::Courses>(&mut sync_conf, "courses", QUERY_COURSES).await?;
+    sync2::<model::Classes>(&mut sync_conf, "classes", QUERY_CLASSES).await?;
+    //TODO: flag for init? use temptable on insert?
+    sync2::<model::Users>(&mut sync_conf, "users", QUERY_USERS).await?;
+    sync2::<model::Enrollments>(&mut sync_conf, "enrollments", QUERY_ENROLLMENTS).await?;
 
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("JSON_F52E2B61-18A1-11d1-B105-00805F49916B")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Orgs = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "orgs")
-            .await
-            .unwrap();
-    }
-
-    let rows = client
-        //.query("SELECT * FROM passmain.dbo.year", &[])
-        .query(QUERY_SUBJECTS, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("subjects")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Subjects = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "subjects")
-            .await
-            .unwrap();
-    }
-
-    let rows = client
-        //.query("SELECT * FROM passmain.dbo.year", &[])
-        .query(QUERY_PERIODS, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("periods")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Periods = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "periods")
-            .await
-            .unwrap();
-    }
-
-    // courses
-    let rows = client
-        //.query("SELECT * FROM passmain.dbo.year", &[])
-        .query(QUERY_COURSES, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("courses")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Courses = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "courses")
-            .await
-            .unwrap();
-    }
-
-    // classes-scheduled
-    let rows = client
-        //.query("SELECT * FROM passmain.dbo.year", &[])
-        .query(QUERY_CLASSES_SCHEDULED, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("classes")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Classes = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "classes")
-            .await
-            .unwrap();
-    }
-    */
-
-    // classes-homeroom
-    let rows = client
-        .query(QUERY_CLASSES_HOMEROOM, &[&delta, &year])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("classes")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Classes = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "classes")
-            .await
-            .unwrap();
-    }
-
-    /*
-    // users-pupil
-    let rows = client
-        .query(QUERY_USERS_PUPIL, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("users")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Users = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "users")
-            .await
-            .unwrap();
-    }
-
-    // users-teacher
-    let rows = client
-        .query(QUERY_USERS_TEACHER, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("users")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Users = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "users")
-            .await
-            .unwrap();
-    }
-    // users-support
-    let rows = client
-        .query(QUERY_USERS_SUPPORT, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("users")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Users = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "users")
-            .await
-            .unwrap();
-    }
-    // users-parents
-    let rows = client
-        .query(QUERY_USERS_PARENTS, &[])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("users")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Users = serde_json::from_str(&data).unwrap();
-        println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "users")
-            .await
-            .unwrap();
-    }
-    */
-
-    // enrollments
-    let rows = client
-        .query(QUERY_ENROLLMENTS, &[&delta, &year])
-        .await
-        .unwrap()
-        .into_first_result()
-        .await
-        .unwrap();
-
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>("enrollments")
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: model::Enrollments = serde_json::from_str(&data).unwrap();
-        //println!("row: {:?}", out);
-        client::put_all(&oneroster, &token, out, "enrollments")
-            .await
-            .unwrap();
-    }
+    Ok(())
 }
-
-/*
- *
- * let rows = get(QUERY, FILTER1, FILTER2, CLIENT)?;
- * for row in rows {
- *      let output = to_model(row, <T>);
- *      client::put_all(API, TOKEN, OUTPUT, ENDPOINT)
- *  }
- *
- */
-/*
-async fn put<T>(endpoint: &str, rows: Vec<tiberius::Row>) -> ()
-where
-    for<'a> T: serde::Deserialize<'a>,
-{
-    for row in rows {
-        let data = row
-            .try_get::<&str, _>(endpoint)
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let out: T = serde_json::from_str(&data).unwrap();
-        client::put_all(&oneroster, &token, out, endpoint)
-            .await
-            .unwrap();
-        ()
-    }
-}
-*/
 
 static QUERY_ACADEMIC_SESSIONS: &str = r#"
 -- name: select-academicSession-years
