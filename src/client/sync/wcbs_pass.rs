@@ -1,6 +1,50 @@
 use crate::{client, model};
 use async_std::net::TcpStream;
-use tiberius::{AuthMethod, Client, SqlBrowser};
+use std::fmt;
+use tiberius::{Client, SqlBrowser};
+
+type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    Surf(surf::Error),
+    Tiberius(tiberius::error::Error),
+    Json(serde_json::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Surf(ref e) => e.fmt(f),
+            Error::Tiberius(ref e) => e.fmt(f),
+            Error::Json(ref e) => e.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match *self {
+            //Error::Surf(ref e) => Some(e),
+            Error::Tiberius(ref e) => Some(e),
+            Error::Json(ref e) => Some(e),
+            _ => None,
+        }
+    }
+}
+macro_rules! into_error {
+    ($from:ty, $to:expr) => {
+        impl From<$from> for Error {
+            fn from(err: $from) -> Error {
+                $to(err)
+            }
+        }
+    };
+}
+
+into_error!(surf::Error, Error::Surf);
+into_error!(tiberius::error::Error, Error::Tiberius);
+into_error!(serde_json::Error, Error::Json);
 
 pub struct Config {
     pub database_ado_string: String,
