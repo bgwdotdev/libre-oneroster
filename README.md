@@ -55,7 +55,7 @@ oneroster server --config oneroster.toml
 oneroster="https://oneroster.example.com/ims/oneroster/v1p1"
 
 # get bearer token using default root creds 
-token=$(xh post $oneroster/login -f client_id=myId client_secret=mySecret)
+token=$(xh post $oneroster/login -f client_id=myId client_secret=mySecret scope="roster-core.readonly" | jq .access_token | xargs)
 
 # create sample data and add
 echo '{"sourcedId": 01, "status": "active"}' > example.json
