@@ -512,6 +512,8 @@ SELECT cast((
         INNER JOIN dbo.school ON school.code = subject_set.school
         INNER JOIN dbo.pupil ON pupil.pupil_id = pupil_set.pupil_id
     WHERE subject_set.academic_year = @p2
+        AND pupil.record_type = 1
+        AND pupil.academic_year = @p2
     ORDER BY sourcedId
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
@@ -534,8 +536,8 @@ SELECT cast((
         INNER JOIN dbo.form ON form.code = pupil.form
         INNER JOIN dbo.school ON school.code = pupil.school
     WHERE form.academic_year = @p2
-        and pupil.academic_year = @p2
-        and pupil.record_type = 1
+        AND pupil.record_type = 1
+        AND pupil.academic_year = @p2
     ORDER BY sourcedId
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
