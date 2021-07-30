@@ -368,7 +368,7 @@ UNION
 -- homeroom pupil
 SELECT cast((
    SELECT
-        cast(concat(txtSchoolId, txtForm) AS varchar(36)) AS sourcedId
+        cast(hashbytes('md5', concat(txtSchoolId, txtForm)) AS uniqueidentifier) AS sourcedId
         , txtForm AS 'class.sourcedId' -- TODO: use intTagId?
         , txtSchoolId AS 'user.sourcedId'
         , (
@@ -388,8 +388,7 @@ UNION
 --scheduled teachers 1
 SELECT cast((
     SELECT
-        cast(concat(TblTeachingManagerSetsId, txtTeacher) AS varchar(72)) AS sourcedId
-        , DATALENGTH(concat(TblTeachingManagerSetsId, txtTeacher))
+        cast(hashbytes('md5', concat(TblTeachingManagerSetsId, txtTeacher)) AS uniqueidentifier) AS sourcedId
         , CASE WHEN blnActive = 1 THEN 'active' ELSE 'tobedeleted' END AS status
         , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , cast(txtTeacher AS varchar(36)) AS 'user.sourcedId'
