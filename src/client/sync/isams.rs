@@ -71,12 +71,12 @@ SELECT cast((
     SELECT
         cast(TblTeachingManagerSetsID AS varchar(36)) AS sourcedId
         , CASE WHEN blnActive = 1 THEN 'active' ELSE 'tobedeleted' END AS status
-        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
+        , cast(sets.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , txtName AS title
         , txtSetCode AS classCode
-        , 'scheduled' AS classType -- TODO: review if sets include tutor groups?
-        , NULL AS location -- TODO: intClassroom join?
-        , json_query(concat('["',intYear,'"]')) AS grades -- TODO: convert to CEDS
+        , 'scheduled' AS classType
+        , NULL AS location
+        , json_query(concat('["',years.txtWebsite,'"]')) AS grades -- CHANGE ME: CEDS value
         , NULL AS subjects
         , cast(intSubject AS varchar(36)) AS 'course.sourcedId'
         , (
@@ -86,7 +86,8 @@ SELECT cast((
         , '2020' AS 'terms.sourcedId' -- TODO: link to terms/academicSessions GUIDREF[1..*]
         , NULL AS subjectCodes
         , NULL AS periods
-    FROM TblTeachingManagerSets
+    FROM TblTeachingManagerSets sets
+        INNER JOIN TblSchoolManagementYears years ON years.intNCYear = sets.intYear
     WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('classes')
@@ -98,12 +99,12 @@ SELECT cast((
     SELECT
         cast(txtForm AS varchar(36)) AS sourcedId
         , 'active' AS status
-        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
+        , cast(forms.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , txtForm AS title
         , txtForm AS classCode
         , 'homeroom' AS classType
-        , NULL AS location -- TODO: intRoom join?
-        , json_query(concat('["',intNCYear,'"]')) AS grades -- TODO: convert to CEDS
+        , NULL AS location
+        , json_query(concat('["',years.txtWebsite,'"]')) AS grades -- CHANGE ME: CEDS value
         , NULL AS subjects
         , (
             SELECT cast(TblTeachingManagerSubjectsId AS varchar(36))
@@ -117,7 +118,8 @@ SELECT cast((
         , '2020' AS 'terms.sourcedId' -- TODO: link to terms/academicSessions GUIDREF[1..*]
         , NULL AS subjectCodes
         , NULL AS periods
-    FROM TblSchoolManagementForms
+    FROM TblSchoolManagementForms forms
+        INNER JOIN TblSchoolManagementYears years ON years.intNCYear = forms.intNCYear
     WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId;
     FOR JSON PATH, root('classes')
@@ -177,11 +179,14 @@ SELECT cast((
             FROM TblSchoolManagementSchoolSetup
             FOR JSON PATH
         ) AS orgs
-        , CASE WHEN intNCYear IS NOT NULL THEN json_query(concat('["',intNCYear,'"]')) ELSE NULL END AS grades -- TODO: convert to CEDS
+        , CASE WHEN pupils.intNCYear IS NOT NULL THEN json_query(concat('["',years.txtWebsite,'"]')) ELSE NULL END AS grades -- CHANGE ME: CEDS value
         , NULL AS password
     FROM TblPupilManagementPupils pupils
-    WHERE intSystemStatus = 1 -- TODO: Remove & WHERE dateLastModified IS NOT NULL?
-        OR intSystemStatus = 0 -- 1 current pupil / -1 leaver / 0 To start
+		INNER JOIN TblSchoolManagementYears years ON years.intNCYear = pupils.intNCYear
+    WHERE pupils.txtSubmitDateTime > @p1
+        -- TODO: Remove & WHERE dateLastModified IS NOT NULL?
+        -- 1 current pupil / -1 leaver / 0 To start
+        AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
     ORDER BY sourcedId
     FOR JSON PATH, root('users')
     ) AS nvarchar(max)
