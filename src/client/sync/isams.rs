@@ -10,7 +10,7 @@ SELECT cast((
         , NULL AS parent
         , NULL AS children
     FROM dbo.TblSchoolManagementSchoolSetup
-    --WHERE dteSubmitDateTime > @p1
+    WHERE dteSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('orgs')
     ) AS nvarchar(max)
@@ -33,6 +33,7 @@ SELECT cast((
         INNER JOIN TblSchoolManagementTermNames AS TermNames ON TermDates.intTerm = TermNames.TblSchoolManagementTermNamesID
     WHERE dateLastModified > @p1
         AND schoolYear = @p2
+    WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('academicSessions')
     ) AS nvarchar(max)
@@ -220,6 +221,7 @@ SELECT cast((
         , NULL AS password
     FROM TblStaff
     WHERE SubmitDate IS NOT NULL
+        AND SubmitDate > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('users')
     ) AS nvarchar(max)
@@ -281,6 +283,7 @@ SELECT cast((
         AND (intMailMergeAll = 1 OR intCorrespondenceMailMerge = 1)
 		AND intPrivate = 0
 		AND datalength(txtEmail1) > 0
+        AND txtSubmitDateTime > @p1
 	ORDER BY sourcedId
     FOR JSON PATH, root('users')
     ) AS nvarchar(max)
@@ -341,6 +344,7 @@ SELECT cast((
         AND (intMailMergeAll = 1 OR intCorrespondenceMailMerge = 1)
 		AND intPrivate = 0
 		AND datalength(txtEmail2) > 0
+        AND txtSubmitDateTime > @p1
 	ORDER BY sourcedId
     FOR JSON PATH, root('users')
     ) AS nvarchar(max)
@@ -365,6 +369,7 @@ SELECT cast((
         , NULL AS beginDate
         , NULL AS endDate
     FROM TblTeachingManagerSetLists
+    WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
@@ -374,6 +379,8 @@ UNION
 SELECT cast((
    SELECT
         cast(hashbytes('md5', concat(txtSchoolId, txtForm)) AS uniqueidentifier) AS sourcedId
+		, CASE WHEN intSystemStatus = -1 THEN 'tobedeleted' ELSE 'active' END AS status -- TODO: verify behaviour with 0 users?
+		, cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , txtForm AS 'class.sourcedId' -- TODO: use intTagId?
         , txtSchoolId AS 'user.sourcedId'
         , (
@@ -385,6 +392,7 @@ SELECT cast((
         , NULL AS endDate
     FROM TblPupilManagementPupils
     WHERE txtForm IS NOT NULL
+		AND txtSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
@@ -407,6 +415,7 @@ SELECT cast((
         , NULL AS beginDate
         , NULL AS endDate
     FROM TblTeachingManagerSets
+    WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
@@ -430,6 +439,7 @@ SELECT cast((
         , NULL AS endDate
     FROM TblTeachingManagerSetAssociatedTeachers
         INNER JOIN TblTeachingManagerSets ON TblTeachingManagerSets.TblTeachingManagerSetsId = TblTeachingManagerSetAssociatedTeachers.intSetId
+    WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
@@ -452,6 +462,7 @@ SELECT cast((
         , NULL AS beginDate
         , NULL AS endDate
     FROM TblSchoolManagementForms
+    WHERE txtSubmitDateTime > @p1
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
 )
@@ -474,6 +485,7 @@ SELECT cast((
         , NULL AS endDate
     FROM TblSchoolManagementForms
     WHERE txtAsstFormTutor <> ''
+        AND txtSubmitDateTime > @p1
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
 )
@@ -496,6 +508,7 @@ SELECT cast((
         , NULL AS endDate
     FROM TblSchoolManagementForms
     WHERE txtAsstFormTutor2 <> ''
+        AND txtSubmitDateTime > @p1
     FOR JSON PATH, root('enrollments')
     ) AS nvarchar(max)
 )
