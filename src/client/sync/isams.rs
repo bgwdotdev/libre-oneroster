@@ -1,4 +1,4 @@
-static QUERY_ORGS: &str = r#"
+pub static QUERY_ORGS: &str = r#"
 SELECT cast((
     SELECT
         cast(TblSchoolManagementSchoolSetupId AS varchar(36)) AS sourcedId
@@ -12,13 +12,13 @@ SELECT cast((
     FROM dbo.TblSchoolManagementSchoolSetup
     WHERE dteSubmitDateTime > @p1
     ORDER BY sourcedId
-    FOR JSON PATH, root('orgs')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER -- root('orgs')
     ) AS nvarchar(max)
 ) AS orgs
 "#;
 
 // No content in TblSchoolManagementYear for 'schoolYear' type?
-static QUERY_ACADEMIC_SESSIONS: &str = r#"
+pub static QUERY_ACADEMIC_SESSIONS: &str = r#"
 SELECT cast((
     SELECT
         cast(TblSchoolManagementTermDatesID AS varchar(36)) AS sourcedId
@@ -31,18 +31,17 @@ SELECT cast((
         , cast(intSchoolYear AS varchar(4)) AS schoolYear
     FROM TblSchoolManagementTermDates AS TermDates
         INNER JOIN TblSchoolManagementTermNames AS TermNames ON TermDates.intTerm = TermNames.TblSchoolManagementTermNamesID
-    WHERE dateLastModified > @p1
-        AND schoolYear = @p2
     WHERE txtSubmitDateTime > @p1
+        --AND schoolYear = @p2
     ORDER BY sourcedId
-    FOR JSON PATH, root('academicSessions')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER -- root('academicSessions')
     ) AS nvarchar(max)
 ) AS academicSessions
 "#;
 
 // NO SUBJECTS
 
-static QUERY_COURSES: &str = r#"
+pub static QUERY_COURSES: &str = r#"
 SELECT cast((
    SELECT
         cast(TblTeachingManagerSubjectsID AS varchar(36)) AS sourcedId
@@ -56,17 +55,17 @@ SELECT cast((
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
-        ) AS varchar(36)) AS 'org.sourcedId'
+        ) AS 'org.sourcedId'
         , NULL AS subjectCodes
     FROM TblTeachingManagerSubjects
     WHERE txtSubmitDateTime > @p1
     ORDER BY sourcedId
-    FOR JSON PATH, root('courses')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER -- root('courses')
     ) AS nvarchar(max)
 ) AS courses
 "#;
 
-static QUERY_CLASSES: &str = r#"
+pub static QUERY_CLASSES: &str = r#"
 -- Scheduled
 SELECT cast((
     SELECT
@@ -83,15 +82,18 @@ SELECT cast((
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
-        ) AS 'org.sourcedId'
-        , '2020' AS 'terms.sourcedId' -- TODO: link to terms/academicSessions GUIDREF[1..*]
+        ) AS 'school.sourcedId'
+        , ( 
+            SELECT '1' AS sourcedId -- TODO: link to terms/academicSessions GUIDREF[1..*]
+            FOR JSON PATH
+        ) AS terms
         , NULL AS subjectCodes
         , NULL AS periods
     FROM TblTeachingManagerSets sets
         INNER JOIN TblSchoolManagementYears years ON years.intNCYear = sets.intYear
-    WHERE txtSubmitDateTime > @p1
+    WHERE sets.txtSubmitDateTime > @p1
     ORDER BY sourcedId
-    FOR JSON PATH, root('classes')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('classes')
     ) AS nvarchar(max)
 ) AS classes
 -- Homerooms
@@ -115,20 +117,23 @@ SELECT cast((
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
-        ) AS 'org.sourcedId'
-        , '2020' AS 'terms.sourcedId' -- TODO: link to terms/academicSessions GUIDREF[1..*]
+        ) AS 'school.sourcedId'
+        , (
+            SELECT '1' AS sourcedId -- TODO: link to terms/academicSessions GUIDREF[1..*]
+            FOR JSON PATH
+        ) AS terms
         , NULL AS subjectCodes
         , NULL AS periods
     FROM TblSchoolManagementForms forms
         INNER JOIN TblSchoolManagementYears years ON years.intNCYear = forms.intNCYear
-    WHERE txtSubmitDateTime > @p1
-    ORDER BY sourcedId;
-    FOR JSON PATH, root('classes')
+    WHERE forms.txtSubmitDateTime > @p1
+    ORDER BY sourcedId
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('classes')
     ) AS nvarchar(max)
 )
 "#;
 
-static QUERY_USERS: &str = r#"
+pub static QUERY_USERS: &str = r#"
 
 DROP TABLE IF EXISTS #OnerosterPupilParents;
 
@@ -142,6 +147,12 @@ FROM TblPupilManagementAddresses addresses
 WHERE addresses.intPersonId IS NOT NULL
 	AND addresses.txtAddressType = 'Home'
 	AND (addresses.intMailMergeAll = 1 OR addresses.intCorrespondenceMailMerge = 1)
+    AND pupils.txtSubmitDateTime > @p1
+    AND pupils.txtEmailAddress IS NOT NULL
+    AND ( pupils.intSystemStatus = 1 OR pupils.intSystemStatus = 0 )
+    AND addresses.intPrivate = 0
+    AND datalength(addresses.txtEmail1) > 0
+    AND addresses.txtSubmitDateTime > @p1
 UNION
 SELECT addresses.intSecondaryPersonId, pupils.txtSchoolID
 FROM TblPupilManagementAddresses addresses
@@ -150,6 +161,12 @@ FROM TblPupilManagementAddresses addresses
 WHERE addresses.intSecondaryPersonId IS NOT NULL
 	AND addresses.txtAddressType = 'Home'
 	AND (addresses.intMailMergeAll = 1 OR addresses.intCorrespondenceMailMerge = 1)
+    AND pupils.txtSubmitDateTime > @p1
+    AND pupils.txtEmailAddress IS NOT NULL
+    AND ( pupils.intSystemStatus = 1 OR pupils.intSystemStatus = 0 )
+    AND addresses.intPrivate = 0
+    AND datalength(addresses.txtEmail2) > 0
+    AND addresses.txtSubmitDateTime > @p1
 ;
 
 -- pupils
@@ -185,11 +202,12 @@ SELECT cast((
     FROM TblPupilManagementPupils pupils
 		INNER JOIN TblSchoolManagementYears years ON years.intNCYear = pupils.intNCYear
     WHERE pupils.txtSubmitDateTime > @p1
+        AND pupils.txtEmailAddress IS NOT NULL
         -- TODO: Remove & WHERE dateLastModified IS NOT NULL?
         -- 1 current pupil / -1 leaver / 0 To start
         AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
     ORDER BY sourcedId
-    FOR JSON PATH, root('users')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
     ) AS nvarchar(max)
 ) AS users
 
@@ -222,18 +240,21 @@ SELECT cast((
     FROM TblStaff
     WHERE SubmitDate IS NOT NULL
         AND SubmitDate > @p1
+        AND schoolEmailAddress <> ''
+        AND schoolEmailAddress IS NOT NULL
+        AND PreName IS NOT NULL -- deals with service accounts
     ORDER BY sourcedId
-    FOR JSON PATH, root('users')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
     ) AS nvarchar(max)
 )
 
 UNION
 -- parent 1
 SELECT cast((
-    SELECT
-        intPersonId AS sourcedId
+    SELECT 
+        cast(intPersonId AS varchar(36)) AS sourcedId
         , 'active' AS status
-        , txtSubmitDateTime AS dateLastModified
+        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , txtEmail1 AS username
         , NULL AS userIds
         , 1 AS enabledUser
@@ -258,7 +279,7 @@ SELECT cast((
             WHEN txtRelationType = 'Guardian'
                 OR txtRelationType = 'Guardians'
             THEN 'guardian'
-            ELSE NULL
+            ELSE 'guardian' -- TODO: handle all cases
         END AS role
         , guidUniquePersonID AS identifier
         , txtEmail1 AS email
@@ -285,16 +306,16 @@ SELECT cast((
 		AND datalength(txtEmail1) > 0
         AND txtSubmitDateTime > @p1
 	ORDER BY sourcedId
-    FOR JSON PATH, root('users')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
     ) AS nvarchar(max)
 )
 UNION
 -- parent 2
 SELECT cast((
-    SELECT
-        intSecondaryPersonId AS sourcedId
+    SELECT 
+        cast(intSecondaryPersonId as varchar(36)) AS sourcedId
         , 'active' AS status
-        , txtSubmitDateTime AS dateLastModified
+        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , txtEmail2 AS username
         , NULL AS userIds
         , 1 AS enabledUser
@@ -319,7 +340,7 @@ SELECT cast((
             WHEN txtRelationType = 'Guardian'
                 OR txtRelationType = 'Guardians'
             THEN 'guardian'
-            ELSE NULL
+            ELSE 'guardian'
         END AS role
         , guidSecondaryUniquePersonID AS identifier
         , txtEmail2 AS email
@@ -346,19 +367,19 @@ SELECT cast((
 		AND datalength(txtEmail2) > 0
         AND txtSubmitDateTime > @p1
 	ORDER BY sourcedId
-    FOR JSON PATH, root('users')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
     ) AS nvarchar(max)
 )
 "#;
 
-static QUERY_ENROLLMENTS: &str = r#"
+pub static QUERY_ENROLLMENTS: &str = r#"
 -- scheduled pupil
 SELECT cast((
     SELECT
         cast(TblTeachingManagerSetListsId AS varchar(36)) AS sourcedId
-        , 'active' AS status -- TODO: needs handling?
-        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
-        , cast(txtSchoolId AS varchar(36)) AS 'user.sourcedId'
+        , CASE WHEN pupils.intSystemStatus = -1 THEN 'tobedeleted' ELSE 'active' END AS status
+        , cast(setlists.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
+        , cast(setlists.txtSchoolId AS varchar(36)) AS 'user.sourcedId'
         , cast(intSetId AS varchar(36)) AS 'class.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
@@ -368,10 +389,14 @@ SELECT cast((
         , NULL AS 'primary'
         , NULL AS beginDate
         , NULL AS endDate
-    FROM TblTeachingManagerSetLists
-    WHERE txtSubmitDateTime > @p1
+    FROM TblTeachingManagerSetLists setlists
+        INNER JOIN TblPupilManagementPupils pupils ON pupils.txtSchoolId = setlists.txtSchoolId
+    WHERE setlists.txtSubmitDateTime > @p1
+        --AND pupils.txtSubmitDateTime > @p1 -- TODO: decide if want pupil status monitored
+        AND pupils.txtEmailAddress IS NOT NULL
+        AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
     ORDER BY sourcedId
-    FOR JSON PATH, root('enrollments')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 ) AS enrollments
 UNION
@@ -387,24 +412,27 @@ SELECT cast((
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
         ) AS 'school.sourcedId'
+        , 'student' AS role
         , NULL AS 'primary'
         , NULL AS beginDate
         , NULL AS endDate
     FROM TblPupilManagementPupils
     WHERE txtForm IS NOT NULL
 		AND txtSubmitDateTime > @p1
+        AND txtEmailAddress IS NOT NULL
+        AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
     ORDER BY sourcedId
-    FOR JSON PATH, root('enrollments')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 )
 UNION
 --scheduled teachers 1
 SELECT cast((
     SELECT
-        cast(hashbytes('md5', concat(TblTeachingManagerSetsId, txtTeacher)) AS uniqueidentifier) AS sourcedId
+        cast(hashbytes('md5', concat(TblTeachingManagerSetsId, staff.TblStaffId)) AS uniqueidentifier) AS sourcedId
         , CASE WHEN blnActive = 1 THEN 'active' ELSE 'tobedeleted' END AS status
-        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
-        , cast(txtTeacher AS varchar(36)) AS 'user.sourcedId'
+        , cast(sets.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
+        , cast(staff.TblStaffId AS varchar(36)) AS 'user.sourcedId'
         , cast(TblTeachingManagerSetsId AS varchar(36)) AS 'class.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
@@ -414,10 +442,16 @@ SELECT cast((
         , 1 AS 'primary'
         , NULL AS beginDate
         , NULL AS endDate
-    FROM TblTeachingManagerSets
+    FROM TblTeachingManagerSets sets
+        INNER JOIN TblStaff staff ON staff.user_code = sets.txtTeacher
     WHERE txtSubmitDateTime > @p1
+        AND staff.SubmitDate IS NOT NULL
+        AND staff.SubmitDate > @p1
+        AND schoolEmailAddress <> ''
+        AND schoolEmailAddress IS NOT NULL
+        AND PreName IS NOT NULL -- deals with service accounts
     ORDER BY sourcedId
-    FOR JSON PATH, root('enrollments')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 )
 UNION
@@ -427,7 +461,7 @@ SELECT cast((
         cast(TblTeachingManagerSetAssociatedTeachersId AS varchar(36)) AS sourcedId
         , CASE WHEN blnActive = 1 THEN 'active' ELSE 'tobedeleted' END AS status
         , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
-        , cast(TblTeachingManagerSetAssociatedTeachers.txtTeacher AS varchar(36)) AS 'user.sourcedId'
+        , cast(staff.TblStaffId AS varchar(36)) AS 'user.sourcedId'
         , cast(TblTeachingManagerSetsId AS varchar(36)) AS 'class.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
@@ -439,20 +473,25 @@ SELECT cast((
         , NULL AS endDate
     FROM TblTeachingManagerSetAssociatedTeachers
         INNER JOIN TblTeachingManagerSets ON TblTeachingManagerSets.TblTeachingManagerSetsId = TblTeachingManagerSetAssociatedTeachers.intSetId
+        INNER JOIN TblStaff staff ON staff.user_code = TblTeachingManagerSetAssociatedTeachers.txtTeacher
     WHERE txtSubmitDateTime > @p1
+        AND staff.SubmitDate IS NOT NULL
+        AND schoolEmailAddress <> ''
+        AND schoolEmailAddress IS NOT NULL
+        AND PreName IS NOT NULL -- deals with service accounts
     ORDER BY sourcedId
-    FOR JSON PATH, root('enrollments')
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 )
 UNION
 -- enrollments homeroom teacher 1
 SELECT cast((
     SELECT
-        cast(hashbytes('md5', concat(txtForm, txtFormTutor)) AS uniqueidentifier) AS sourcedId
+        cast(hashbytes('md5', concat(txtForm, staff.TblStaffId)) AS uniqueidentifier) AS sourcedId
         , 'active' AS status
-        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
+        , cast(forms.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , cast(txtForm AS varchar(36)) AS 'class.sourcedId'
-        , cast(txtFormTutor AS varchar(36)) AS 'user.sourcedId'
+        , cast(staff.TblStaffId AS varchar(36)) AS 'user.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
@@ -461,20 +500,25 @@ SELECT cast((
         , 1 AS 'primary'
         , NULL AS beginDate
         , NULL AS endDate
-    FROM TblSchoolManagementForms
-    WHERE txtSubmitDateTime > @p1
-    FOR JSON PATH, root('enrollments')
+    FROM TblSchoolManagementForms forms
+        INNER JOIN TblStaff staff ON staff.user_code = forms.txtFormTutor
+    WHERE forms.txtSubmitDateTime > @p1
+        AND staff.SubmitDate IS NOT NULL
+        AND schoolEmailAddress <> ''
+        AND schoolEmailAddress IS NOT NULL
+        AND PreName IS NOT NULL -- deals with service accounts
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 )
 UNION
 -- enrollments homeroom teacher 2
 SELECT cast((
     SELECT
-        cast(hashbytes('md5', concat(txtForm, txtAsstFormTutor)) AS uniqueidentifier) AS sourcedId
+        cast(hashbytes('md5', concat(txtForm, TblStaffID)) AS uniqueidentifier) AS sourcedId
         , 'active' AS status
         , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , cast(txtForm AS varchar(36)) AS 'class.sourcedId'
-        , cast(txtAsstFormTutor AS varchar(36)) AS 'user.sourcedId'
+        , cast(staff.TblStaffId AS varchar(36)) AS 'user.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
@@ -483,21 +527,26 @@ SELECT cast((
         , 0 AS 'primary'
         , NULL AS beginDate
         , NULL AS endDate
-    FROM TblSchoolManagementForms
-    WHERE txtAsstFormTutor <> ''
-        AND txtSubmitDateTime > @p1
-    FOR JSON PATH, root('enrollments')
+    FROM TblSchoolManagementForms forms
+        INNER JOIN TblStaff staff ON staff.user_code = forms.txtAsstFormTutor
+    WHERE forms.txtAsstFormTutor <> ''
+        AND forms.txtSubmitDateTime > @p1
+        AND staff.SubmitDate IS NOT NULL
+        AND schoolEmailAddress <> ''
+        AND schoolEmailAddress IS NOT NULL
+        AND PreName IS NOT NULL -- deals with service accounts
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 )
 UNION
 -- enrollments homeroom teacher 3
 SELECT cast((
     SELECT
-        cast(hashbytes('md5', concat(txtForm, txtAsstFormTutor2)) AS uniqueidentifier) AS sourcedId
+        cast(hashbytes('md5', concat(txtForm, staff.TblStaffId)) AS uniqueidentifier) AS sourcedId
         , 'active' AS status
-        , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
+        , cast(forms.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , cast(txtForm AS varchar(36)) AS 'class.sourcedId'
-        , cast(txtAsstFormTutor2 AS varchar(36)) AS 'user.sourcedId'
+        , cast(staff.TblStaffId AS varchar(36)) AS 'user.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
             FROM TblSchoolManagementSchoolSetup
@@ -506,10 +555,15 @@ SELECT cast((
         , 0 AS 'primary'
         , NULL AS beginDate
         , NULL AS endDate
-    FROM TblSchoolManagementForms
-    WHERE txtAsstFormTutor2 <> ''
-        AND txtSubmitDateTime > @p1
-    FOR JSON PATH, root('enrollments')
+    FROM TblSchoolManagementForms forms
+        INNER JOIN TblStaff staff ON staff.user_code = forms.txtAsstFormTutor2
+    WHERE forms.txtAsstFormTutor2 <> ''
+        AND forms.txtSubmitDateTime > @p1
+        AND staff.SubmitDate IS NOT NULL
+        AND schoolEmailAddress <> ''
+        AND schoolEmailAddress IS NOT NULL
+        AND PreName IS NOT NULL -- deals with service accounts
+    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
     ) AS nvarchar(max)
 )
 "#;
