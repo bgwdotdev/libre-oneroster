@@ -89,6 +89,31 @@ where
     }
     Ok(())
 }
+
+async fn sync3<T>(config: &mut SyncConf, endpoint: &str, query: &str) -> Result<()>
+where
+    for<'a> T: serde::Deserialize<'a>,
+    T: serde::Serialize,
+{
+    log::info!("Syncing {}...", endpoint);
+    let rows = config
+        .database
+        .query(query, &[&config.delta, &config.year])
+        .await?
+        .into_first_result()
+        .await?;
+    let mut datas: Vec<String> = Vec::new();
+    for row in rows {
+        if let Some(data) = row.try_get::<&str, _>(endpoint)? {
+            datas.push(data.to_owned());
+        }
+    }
+    let json = datas.join(",");
+    let wrapped_json = format!(r#"{{"{}":[{}]}}"#, endpoint, json);
+    let output: T = serde_json::from_str(&wrapped_json)?;
+    client::put_all(&config.oneroster, &config.token, output, endpoint).await?;
+    Ok(())
+}
 pub async fn sync(config: Config) -> Result<()> {
     log::info!("seeking database...");
 
