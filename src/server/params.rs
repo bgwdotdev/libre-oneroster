@@ -3,6 +3,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub(crate) struct Parameters {
     pub(crate) limit: u32,  // 10
     pub(crate) offset: u32, // 20
