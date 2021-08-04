@@ -376,7 +376,8 @@ pub static QUERY_ENROLLMENTS: &str = r#"
 -- scheduled pupil
 SELECT cast((
     SELECT
-        cast(TblTeachingManagerSetListsId AS varchar(36)) AS sourcedId
+        --cast(TblTeachingManagerSetListsId AS varchar(36)) AS sourcedId
+        cast(hashbytes('md5', concat(intSetId, setlists.txtSchoolId)) AS uniqueidentifier) AS sourcedId
         , CASE WHEN pupils.intSystemStatus = -1 THEN 'tobedeleted' ELSE 'active' END AS status
         , cast(setlists.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , cast(setlists.txtSchoolId AS varchar(36)) AS 'user.sourcedId'
@@ -403,7 +404,7 @@ UNION
 -- homeroom pupil
 SELECT cast((
    SELECT
-        cast(hashbytes('md5', concat(txtSchoolId, txtForm)) AS uniqueidentifier) AS sourcedId
+        cast(hashbytes('md5', concat(txtForm, txtSchoolId)) AS uniqueidentifier) AS sourcedId
 		, CASE WHEN intSystemStatus = -1 THEN 'tobedeleted' ELSE 'active' END AS status -- TODO: verify behaviour with 0 users?
 		, cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , txtForm AS 'class.sourcedId' -- TODO: use intTagId?
@@ -458,7 +459,7 @@ UNION
 --scheduled teacher 2..
 SELECT cast((
     SELECT
-        cast(TblTeachingManagerSetAssociatedTeachersId AS varchar(36)) AS sourcedId
+        cast(hashbytes('md5', concat(TblTeachingManagerSetsId, staff.TblStaffId)) AS uniqueidentifier) AS sourcedId
         , CASE WHEN blnActive = 1 THEN 'active' ELSE 'tobedeleted' END AS status
         , cast(txtSubmitDateTime AS datetimeoffset) AS dateLastModified
         , cast(staff.TblStaffId AS varchar(36)) AS 'user.sourcedId'
