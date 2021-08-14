@@ -1,4 +1,4 @@
-static QUERY_ACADEMIC_SESSIONS: &str = r#"
+pub(super) static QUERY_ACADEMIC_SESSIONS: &str = r#"
 -- name: select-academicSession-years
 declare @results nvarchar(max);
 SET @results = (
@@ -21,7 +21,7 @@ SET @results = (
 SELECT @results AS academicSessions
 "#;
 
-static QUERY_ORGS: &str = r#"
+pub(super) static QUERY_ORGS: &str = r#"
 -- name: select-orgs
 declare @results nvarchar(max);
 SET @results = (
@@ -42,7 +42,7 @@ SET @results = (
 SELECT @results AS orgs;
 "#;
 
-static QUERY_SUBJECTS: &str = r#"
+pub(super) static QUERY_SUBJECTS: &str = r#"
 declare @result NVARCHAR(max);
 SET @result = (
     SELECT
@@ -59,7 +59,7 @@ SET @result = (
 SELECT @result AS subjects
 "#;
 
-static QUERY_PERIODS: &str = r#"
+pub(super) static QUERY_PERIODS: &str = r#"
 declare @timetableid int = '43348527'; -- CHANGEME: Your current timetable ID
 declare @results nvarchar(max);
 SET @results = (
@@ -80,7 +80,7 @@ SET @results = (
 SELECT @results AS 'periods'
 "#;
 
-static QUERY_COURSES: &str = r#"
+pub(super) static QUERY_COURSES: &str = r#"
 declare @results nvarchar(max);
 SET @results = (
     SELECT
@@ -103,7 +103,7 @@ SET @results = (
 SELECT @results AS 'courses'
 "#;
 
-static QUERY_CLASSES: &str = r#"
+pub(super) static QUERY_CLASSES: &str = r#"
 -- name: select-classes-scheduled
 SELECT cast((
     SELECT
@@ -167,7 +167,7 @@ SELECT cast((
 )
 "#;
 
-static QUERY_USERS: &str = r#"
+pub(super) static QUERY_USERS: &str = r#"
 -- name: select-users-pupil
 SELECT cast((
     SELECT
@@ -368,7 +368,7 @@ SELECT cast((
 "#;
 
 //TODO: add delta to enrollments
-static QUERY_ENROLLMENTS: &str = r#"
+pub(super) static QUERY_ENROLLMENTS: &str = r#"
 -- name: select-enrollments-scheduled-pupil
 SELECT cast((
     SELECT

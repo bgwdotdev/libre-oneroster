@@ -4,6 +4,7 @@ pub mod wcbs_pass;
 use crate::{client, model};
 use async_std::net::TcpStream;
 use std::fmt;
+use std::str::FromStr;
 use tiberius::{Client, SqlBrowser};
 
 type Result<T> = std::result::Result<T, Error>;
@@ -54,6 +55,24 @@ pub struct Config {
     pub oneroster: client::Config,
     pub delta: String,
     pub academic_year: usize,
+    pub provider: Provider,
+}
+
+pub enum Provider {
+    Isams,
+    WcbsPass,
+}
+
+impl FromStr for Provider {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "isams" => Ok(Provider::Isams),
+            "pass" => Ok(Provider::WcbsPass),
+            _ => Err("no match"),
+        }
+    }
 }
 
 async fn connect_database(connection_string: &str) -> Client<TcpStream> {
@@ -117,6 +136,7 @@ where
     client::put_all(&config.oneroster, &config.token, output, endpoint).await?;
     Ok(())
 }
+
 pub async fn sync(config: Config) -> Result<()> {
     log::info!("seeking database...");
 
@@ -137,34 +157,42 @@ pub async fn sync(config: Config) -> Result<()> {
         year,
     };
 
-    sync3::<model::AcademicSessions>(
-        &mut sync_conf,
-        "academicSessions",
-        client::sync::isams::QUERY_ACADEMIC_SESSIONS,
-    )
-    .await?;
-    sync3::<model::Orgs>(&mut sync_conf, "orgs", client::sync::isams::QUERY_ORGS).await?;
-    //sync2::<model::Subjects>(&mut sync_conf, "subjects", client::sync::isams::QUERY_SUBJECTS).await?;
-    //sync2::<model::Periods>(&mut sync_conf, "periods", QUERY_PERIODS).await?;
-    sync3::<model::Courses>(
-        &mut sync_conf,
-        "courses",
-        client::sync::isams::QUERY_COURSES,
-    )
-    .await?;
-    sync3::<model::Classes>(
-        &mut sync_conf,
-        "classes",
-        client::sync::isams::QUERY_CLASSES,
-    )
-    .await?;
-    //TODO: flag for init? use temptable on insert?
-    sync3::<model::Users>(&mut sync_conf, "users", client::sync::isams::QUERY_USERS).await?;
-    sync3::<model::Enrollments>(
-        &mut sync_conf,
-        "enrollments",
-        client::sync::isams::QUERY_ENROLLMENTS,
-    )
-    .await?;
-    Ok(())
+    match &config.provider {
+        Provider::Isams => {
+            sync3::<model::AcademicSessions>(
+                &mut sync_conf,
+                "academicSessions",
+                isams::QUERY_ACADEMIC_SESSIONS,
+            )
+            .await?;
+            sync3::<model::Orgs>(&mut sync_conf, "orgs", isams::QUERY_ORGS).await?;
+            sync3::<model::Courses>(&mut sync_conf, "courses", isams::QUERY_COURSES).await?;
+            sync3::<model::Classes>(&mut sync_conf, "classes", isams::QUERY_CLASSES).await?;
+            sync3::<model::Users>(&mut sync_conf, "users", isams::QUERY_USERS).await?;
+            sync3::<model::Enrollments>(&mut sync_conf, "enrollments", isams::QUERY_ENROLLMENTS)
+                .await?;
+            Ok(())
+        }
+        Provider::WcbsPass => {
+            sync2::<model::AcademicSessions>(
+                &mut sync_conf,
+                "academicSessions",
+                wcbs_pass::QUERY_ACADEMIC_SESSIONS,
+            )
+            .await?;
+            sync2::<model::Orgs>(&mut sync_conf, "orgs", wcbs_pass::QUERY_ORGS).await?;
+            sync2::<model::Subjects>(&mut sync_conf, "subjects", wcbs_pass::QUERY_SUBJECTS).await?;
+            sync2::<model::Periods>(&mut sync_conf, "periods", wcbs_pass::QUERY_PERIODS).await?;
+            sync2::<model::Courses>(&mut sync_conf, "courses", wcbs_pass::QUERY_COURSES).await?;
+            sync2::<model::Classes>(&mut sync_conf, "classes", wcbs_pass::QUERY_CLASSES).await?;
+            sync2::<model::Users>(&mut sync_conf, "users", wcbs_pass::QUERY_USERS).await?;
+            sync2::<model::Enrollments>(
+                &mut sync_conf,
+                "enrollments",
+                wcbs_pass::QUERY_ENROLLMENTS,
+            )
+            .await?;
+            Ok(())
+        }
+    }
 }

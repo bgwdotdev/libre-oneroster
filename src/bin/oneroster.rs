@@ -110,6 +110,12 @@ fn cli() -> Result<(), ServerError> {
                         .takes_value(true)
                         .value_name("YYYY")
                         .required(true),
+                )
+                .arg(
+                    clap::Arg::from("<provider>")
+                        .about("The source database provider")
+                        .possible_values(&["isams", "pass"])
+                        .required(true),
                 ),
         )
         .subcommand(
@@ -202,6 +208,7 @@ fn cli() -> Result<(), ServerError> {
                 oneroster: or,
                 delta: args.value_of_t("delta").unwrap(),
                 academic_year: args.value_of_t("year").unwrap(),
+                provider: args.value_of_t("provider").unwrap(),
             };
             task::block_on(client::sync::sync(conf)).unwrap();
             Ok(())
