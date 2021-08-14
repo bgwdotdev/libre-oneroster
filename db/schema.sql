@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS AcademicSessions (
     , "schoolYear" text -- YYYY
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (sessionTypeId) REFERENCES SessionType (id)
-    , FOREIGN KEY (parentSourcedId) REFERENCES AcademicSessions (sourcedId)
+    , FOREIGN KEY (parentSourcedId) REFERENCES AcademicSessions (sourcedId) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Custom
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS Orgs (
     , "parentSourcedId" text
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id)
     , FOREIGN KEY (orgTypeId) REFERENCES OrgType (id)
-    , FOREIGN KEY (parentSourcedId) REFERENCES orgs (sourcedId)
+    , FOREIGN KEY (parentSourcedId) REFERENCES orgs (sourcedId) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- OR:4.12
@@ -261,8 +261,8 @@ CREATE TABLE IF NOT EXISTS UserAgents (
     , "userSourcedId" text NOT NULL
     , "agentUserSourcedId" text NOT NULL
     , FOREIGN KEY (statusTypeId) REFERENCES StatusType (id) ON DELETE RESTRICT
-    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
-    , FOREIGN KEY (agentUserSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE
+    , FOREIGN KEY (userSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+    , FOREIGN KEY (agentUserSourcedId) REFERENCES Users (sourcedId) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE UNIQUE INDEX IF NOT EXISTS UserAgentsIndex ON UserAgents (userSourcedId, agentUserSourcedId);
 
