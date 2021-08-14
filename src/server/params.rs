@@ -3,6 +3,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub(crate) struct Parameters {
     pub(crate) limit: u32,  // 10
     pub(crate) offset: u32, // 20
@@ -138,7 +139,7 @@ pub(super) async fn link_header_builder(
 ) -> String {
     println!("{:?}", req.url());
     let mut link = String::from("");
-    if params.limit <= data_len as u32 {
+    if params.offset <= data_len as u32 {
         link = format!(
             "<{}://{}:{}/ims/oneroster/v1p1{}?offset={}&limit={}>; rel=\"next\",",
             req.url().scheme(),

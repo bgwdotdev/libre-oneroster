@@ -2,6 +2,14 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+#[derive(Debug, Deserialize, Serialize)]
+pub(crate) struct TokenReturn {
+    pub access_token: String,
+    token_type: String,
+    expires_in: u64,
+    scope: String,
+}
+
 // while href and ref_type are not optional
 // in the spec output, they are for the purposes
 // of ingest. Their required state is enforced by

@@ -44,6 +44,81 @@ fn cli() -> Result<(), ServerError> {
                 ),
         )
         .subcommand(
+            clap::App::new("sync")
+                .about("Starts the MIS to oneroster sync client")
+                .arg(
+                    clap::Arg::new("database_ado_string")
+                        .about("The source database ado connection string")
+                        .short('d')
+                        .long("database")
+                        .takes_value(true)
+                        .value_name("ADO_STRING")
+                        .required(true)
+                        .long_about(
+                            "tcp:ip\\instance;database=MyDatabase;\
+                            username=MyUser;password=MySecret;\
+                            encryption=true;TrustServerCertificate=true;",
+                        ),
+                )
+                .arg(
+                    clap::Arg::new("api")
+                        .about("url to the oneroster API")
+                        .short('u')
+                        .long("url")
+                        .takes_value(true)
+                        .value_name("URL")
+                        .required(true),
+                )
+                .arg(
+                    clap::Arg::new("ci")
+                        .about("client id to the oneroster API")
+                        .short('i')
+                        .long("client_id")
+                        .takes_value(true)
+                        .required(true),
+                )
+                .arg(
+                    clap::Arg::new("cs")
+                        .about("client secret to the oneroster API")
+                        .short('p')
+                        .long("client_secret")
+                        .takes_value(true)
+                        .required(true),
+                )
+                .arg(
+                    clap::Arg::new("scope")
+                        .about("oneroster scope required for calls")
+                        .short('s')
+                        .long("scope")
+                        .takes_value(true)
+                        .default_value("roster-core.createput roster.createput"),
+                )
+                .arg(
+                    clap::Arg::new("delta")
+                        .about("The date/time of the last sync")
+                        .short('t')
+                        .long("delta")
+                        .takes_value(true)
+                        .value_name("DATE_TIME")
+                        .default_value("2015-01-01 00:00:00"),
+                )
+                .arg(
+                    clap::Arg::new("year")
+                        .about("The academic year to sync")
+                        .short('y')
+                        .long("year")
+                        .takes_value(true)
+                        .value_name("YYYY")
+                        .required(true),
+                )
+                .arg(
+                    clap::Arg::from("<provider>")
+                        .about("The source database provider")
+                        .possible_values(&["isams", "pass"])
+                        .required(true),
+                ),
+        )
+        .subcommand(
             clap::App::new("server")
                 .about("Starts the oneroster server")
                 .arg(
@@ -95,6 +170,7 @@ fn cli() -> Result<(), ServerError> {
                 url: cm.value_of("url").unwrap().to_string(),
                 client_id: cm.value_of("clientid").unwrap().to_string(),
                 client_secret: cm.value_of("clientsecret").unwrap().to_string(),
+                scope: "admin.readonly".to_string(),
             };
             task::block_on(client::run(conf)).unwrap();
             Ok(())
@@ -118,6 +194,23 @@ fn cli() -> Result<(), ServerError> {
                 decode_key,
             };
             task::block_on(server::run(c)).unwrap();
+            Ok(())
+        }
+        Some(("sync", args)) => {
+            let or = crate::client::Config {
+                url: args.value_of_t("api").unwrap(),
+                client_id: args.value_of_t("ci").unwrap(),
+                client_secret: args.value_of_t("cs").unwrap(),
+                scope: args.value_of_t("scope").unwrap(),
+            };
+            let conf = crate::client::sync::Config {
+                database_ado_string: args.value_of_t("database_ado_string").unwrap(),
+                oneroster: or,
+                delta: args.value_of_t("delta").unwrap(),
+                academic_year: args.value_of_t("year").unwrap(),
+                provider: args.value_of_t("provider").unwrap(),
+            };
+            task::block_on(client::sync::sync(conf)).unwrap();
             Ok(())
         }
         _ => Ok(()),
