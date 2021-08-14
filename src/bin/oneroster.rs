@@ -148,6 +148,7 @@ fn cli() -> Result<(), ServerError> {
                 .arg(
                     clap::Arg::new("private_key")
                         .about("path to the pem encoded private key used to encode the JWT")
+                        .short('J')
                         .long("private-key")
                         .takes_value(true)
                         .value_name("PATH")
@@ -156,6 +157,7 @@ fn cli() -> Result<(), ServerError> {
                 .arg(
                     clap::Arg::new("public_key")
                         .about("path to the pem encoded public key used to decode the JWT")
+                        .short('j')
                         .long("public-key")
                         .takes_value(true)
                         .value_name("PATH")
@@ -164,6 +166,7 @@ fn cli() -> Result<(), ServerError> {
                 .arg(
                     clap::Arg::new("web_private_key")
                         .about("path to the pem encoded private key used to secure HTTPS")
+                        .short('W')
                         .long("web-private-key")
                         .takes_value(true)
                         .value_name("PATH")
@@ -172,6 +175,7 @@ fn cli() -> Result<(), ServerError> {
                 .arg(
                     clap::Arg::new("web_public_key")
                         .about("path to the pem encoded public key used to secure HTTPS")
+                        .short('w')
                         .long("web-public-key")
                         .takes_value(true)
                         .value_name("PATH")
