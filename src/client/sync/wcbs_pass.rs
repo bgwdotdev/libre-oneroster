@@ -134,17 +134,35 @@ pub async fn sync(config: Config) -> Result<()> {
         year,
     };
 
-    sync2::<model::AcademicSessions>(&mut sync_conf, "academicSessions", QUERY_ACADEMIC_SESSIONS)
-        .await?;
-    sync2::<model::Orgs>(&mut sync_conf, "orgs", QUERY_ORGS).await?;
-    sync2::<model::Subjects>(&mut sync_conf, "subjects", QUERY_SUBJECTS).await?;
-    sync2::<model::Periods>(&mut sync_conf, "periods", QUERY_PERIODS).await?;
-    sync2::<model::Courses>(&mut sync_conf, "courses", QUERY_COURSES).await?;
-    sync2::<model::Classes>(&mut sync_conf, "classes", QUERY_CLASSES).await?;
+    sync3::<model::AcademicSessions>(
+        &mut sync_conf,
+        "academicSessions",
+        client::sync::isams::QUERY_ACADEMIC_SESSIONS,
+    )
+    .await?;
+    sync3::<model::Orgs>(&mut sync_conf, "orgs", client::sync::isams::QUERY_ORGS).await?;
+    //sync2::<model::Subjects>(&mut sync_conf, "subjects", client::sync::isams::QUERY_SUBJECTS).await?;
+    //sync2::<model::Periods>(&mut sync_conf, "periods", QUERY_PERIODS).await?;
+    sync3::<model::Courses>(
+        &mut sync_conf,
+        "courses",
+        client::sync::isams::QUERY_COURSES,
+    )
+    .await?;
+    sync3::<model::Classes>(
+        &mut sync_conf,
+        "classes",
+        client::sync::isams::QUERY_CLASSES,
+    )
+    .await?;
     //TODO: flag for init? use temptable on insert?
-    sync2::<model::Users>(&mut sync_conf, "users", QUERY_USERS).await?;
-    sync2::<model::Enrollments>(&mut sync_conf, "enrollments", QUERY_ENROLLMENTS).await?;
-
+    sync3::<model::Users>(&mut sync_conf, "users", client::sync::isams::QUERY_USERS).await?;
+    sync3::<model::Enrollments>(
+        &mut sync_conf,
+        "enrollments",
+        client::sync::isams::QUERY_ENROLLMENTS,
+    )
+    .await?;
     Ok(())
 }
 
