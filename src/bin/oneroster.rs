@@ -197,13 +197,13 @@ fn cli() -> Result<(), ServerError> {
                 client_secret: args.value_of_t("cs").unwrap(),
                 scope: args.value_of_t("scope").unwrap(),
             };
-            let conf = crate::client::sync::wcbs_pass::Config {
+            let conf = crate::client::sync::Config {
                 database_ado_string: args.value_of_t("database_ado_string").unwrap(),
                 oneroster: or,
                 delta: args.value_of_t("delta").unwrap(),
                 academic_year: args.value_of_t("year").unwrap(),
             };
-            task::block_on(client::sync::wcbs_pass::sync(conf)).unwrap();
+            task::block_on(client::sync::sync(conf)).unwrap();
             Ok(())
         }
         _ => Ok(()),
