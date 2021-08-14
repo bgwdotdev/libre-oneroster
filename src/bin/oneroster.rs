@@ -160,6 +160,22 @@ fn cli() -> Result<(), ServerError> {
                         .takes_value(true)
                         .value_name("PATH")
                         .required(true),
+                )
+                .arg(
+                    clap::Arg::new("web_private_key")
+                        .about("path to the pem encoded private key used to secure HTTPS")
+                        .long("web-private-key")
+                        .takes_value(true)
+                        .value_name("PATH")
+                        .required(true),
+                )
+                .arg(
+                    clap::Arg::new("web_public_key")
+                        .about("path to the pem encoded public key used to secure HTTPS")
+                        .long("web-public-key")
+                        .takes_value(true)
+                        .value_name("PATH")
+                        .required(true),
                 ),
         )
         .get_matches();
@@ -192,6 +208,8 @@ fn cli() -> Result<(), ServerError> {
                 socket_address: args.value_of_t("socket_address").unwrap(),
                 encode_key,
                 decode_key,
+                web_public_key: args.value_of_t("web_public_key").unwrap(),
+                web_private_key: args.value_of_t("web_private_key").unwrap(),
             };
             task::block_on(server::run(c)).unwrap();
             Ok(())
