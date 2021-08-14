@@ -112,7 +112,7 @@ SELECT cast((
         , (
             SELECT cast(TblTeachingManagerSubjectsId AS varchar(36))
             FROM TblTeachingManagerSubjects
-            WHERE txtSubjectName = 'Tutorial'
+            WHERE txtSubjectName = 'Tutor Group'
         ) AS 'course.sourcedId'
         , (
             SELECT cast(TblSchoolManagementSchoolSetupId AS varchar(36))
@@ -175,7 +175,7 @@ SELECT cast((
         cast(pupils.txtSchoolId AS varchar(36)) AS sourcedId
         , CASE WHEN intSystemStatus = -1 THEN 'tobedeleted' ELSE 'active' END AS status
         , cast(pupils.txtSubmitDateTime AS datetimeoffset) AS dateLastModified
-        , pupils.txtEmailAddress AS username -- TODO: handle NULLS
+        , CASE WHEN pupils.txtEmailAddress IS NULL THEN txtSchoolId ELSE pupils.txtEmailAddress END AS username
         , NULL AS userIds
         , pupils.intSystemStatus AS enabledUser
         , pupils.txtPreName AS givenName
@@ -202,7 +202,7 @@ SELECT cast((
     FROM TblPupilManagementPupils pupils
 		INNER JOIN TblSchoolManagementYears years ON years.intNCYear = pupils.intNCYear
     WHERE pupils.txtSubmitDateTime > @p1
-        AND pupils.txtEmailAddress IS NOT NULL
+        --AND pupils.txtEmailAddress IS NOT NULL
         -- TODO: Remove & WHERE dateLastModified IS NOT NULL?
         -- 1 current pupil / -1 leaver / 0 To start
         AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
@@ -218,7 +218,7 @@ SELECT cast((
         cast(TblStaffId AS varchar(36)) AS sourcedId -- TODO: consider GUIDUniquePersonId ?
         , CASE WHEN SystemStatus = -1 THEN 'tobedeleted' ELSE 'active' END AS status
         , cast(SubmitDate AS datetimeoffset) AS dateLastModified
-        , schoolEmailAddress AS username -- TODO: username null?
+        , CASE WHEN schoolEmailAddress <> '' THEN schoolEmailAddress  ELSE  cast(TblStaffId AS varchar(36)) END AS username -- TODO: username null?
         , NULL AS userIds
         , CASE WHEN SystemStatus = 1 THEN 1 ELSE 0 END AS enabledUser
         , PreName AS givenName
@@ -240,8 +240,6 @@ SELECT cast((
     FROM TblStaff
     WHERE SubmitDate IS NOT NULL
         AND SubmitDate > @p1
-        AND schoolEmailAddress <> ''
-        AND schoolEmailAddress IS NOT NULL
         AND PreName IS NOT NULL -- deals with service accounts
     ORDER BY sourcedId
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
