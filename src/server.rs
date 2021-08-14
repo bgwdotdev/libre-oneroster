@@ -10,6 +10,7 @@ use std::io::prelude::*;
 use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
+use tide_rustls::TlsListener;
 
 type Result<T> = std::result::Result<T, ServerError>;
 
@@ -83,6 +84,8 @@ pub struct Config {
     pub socket_address: std::net::SocketAddr,
     pub encode_key: jsonwebtoken::EncodingKey,
     pub decode_key: jsonwebtoken::DecodingKey,
+    pub web_public_key: String,
+    pub web_private_key: String,
 }
 
 pub async fn run(config: Config) -> tide::Result<()> {
@@ -145,7 +148,14 @@ pub async fn run(config: Config) -> tide::Result<()> {
 
     srv.at("/admin").nest(adminsrv);
     srv.at("/ims/oneroster/v1p1").nest(authsrv);
-    srv.listen(config.socket_address).await?;
+    srv.listen(
+        TlsListener::build()
+            .addrs(config.socket_address)
+            .cert(config.web_public_key)
+            .key(config.web_private_key),
+        //config.socket_address
+    )
+    .await?;
     Ok(())
 }
 

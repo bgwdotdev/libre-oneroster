@@ -47,9 +47,11 @@ step certificate create oneroster \
     --profile self-signed --subtle
 
 # sets up database and template config and provides one-time root creds
-oneroster server --init --database myoneroster.db --public-key oneroster.pem --private-key oneroster.key.pem
+oneroster server --init --database myoneroster.db \
+    --public-key oneroster.pem --private-key oneroster.key.pem \
+    --web-public-key oneroster.pem --web-private-key oneroster.key.pem
 # Can remove --init after database has been initialised for the first time
-oneroster server --database myoneroster.db --public-key oneroster.pem --private-key oneroster.key.pem
+oneroster server --database myoneroster.db -j oneroster.pem -J oneroster.key.pem -w oneroster.pem -W oneroster.key.pem
 ```
 
 ## Calling API with traditional tools
