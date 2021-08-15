@@ -240,6 +240,12 @@ pub struct Classes {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct ClassId {
+    pub class: Class,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct AcademicSessions {
     pub academic_sessions: Vec<AcademicSession>,
 }

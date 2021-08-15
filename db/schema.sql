@@ -658,6 +658,13 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
         Classes.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS VwORGetClass AS
+    SELECT json_object(
+        'class', json(class)
+    ) AS 'class'
+FROM ClassesJson
+;
+
 -- OR 5.11
 CREATE VIEW IF NOT EXISTS UsersJsonArray AS
     SELECT json_object(

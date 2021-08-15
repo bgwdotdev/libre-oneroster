@@ -57,6 +57,20 @@ create_get_endpoint!(get_all_courses, courses, "courses");
 create_get_endpoint!(get_all_enrollments, enrollments, "enrollments");
 // enrollment
 
+macro_rules! create_get_endpoint_by_id {
+    ($name:ident) => {
+        async fn $name(req: Request<State>) -> tide::Result {
+            let id = req.param("id")?;
+            let data = db::$name(&req.state().db, id).await?;
+            Ok(tide::Response::builder(200)
+                .content_type(mime::JSON)
+                .body(json!(data).to_string())
+                .build())
+        }
+    };
+}
+create_get_endpoint_by_id!(get_class);
+
 macro_rules! create_put_endpoint {
     ($i:ident) => {
         async fn $i(mut req: Request<State>) -> tide::Result {
@@ -113,6 +127,7 @@ pub async fn run(config: Config) -> tide::Result<()> {
     srv.at("/").get(|_| async { Ok("oneroster ui\n") });
     srv.at("/auth/login").post(login);
     srv.at("/auth/check_token").get(check_token);
+    srv.at("/classes/:id").get(get_class);
     // oneroster
     let mut authsrv = tide::with_state(srv.state().clone());
     authsrv.with(auth::middleware::Jwt::new(vec![

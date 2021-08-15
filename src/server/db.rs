@@ -186,6 +186,28 @@ create_get_db!(
     enrollments
 );
 
+macro_rules! create_get_db_by_id {
+    ($name:ident, $data:ty, $query:literal, $object:ident) => {
+        pub(crate) async fn $name(db: &sqlx::SqlitePool, id: &str) -> Result<$data> {
+            let row = sqlx::query!($query, id).fetch_optional(db).await?;
+            if let Some(r) = row {
+                if let Some(data) = r.$object {
+                    let output: $data = serde_json::from_str(&data)?;
+                    return Ok(output);
+                }
+            }
+            Err(ServerError::NoContent)
+        }
+    };
+}
+
+create_get_db_by_id!(
+    get_class,
+    model::ClassId,
+    r#"SELECT class AS "class: String" FROM VwORGetClass WHERE json_extract(class, '$.class.sourcedId') = ?"#,
+    class
+);
+
 macro_rules! create_put_db {
     ($name:ident, $data:ty, $query:literal, $object:ident) => {
         pub(crate) async fn $name(data: $data, db: &sqlx::SqlitePool) -> Result<()> {
