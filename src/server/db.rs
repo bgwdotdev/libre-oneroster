@@ -34,9 +34,12 @@ pub(super) async fn get_api_creds(
         "#,
         client_id
     )
-    .fetch_one(db)
+    .fetch_optional(db)
     .await?;
-    Ok(res)
+    if let Some(user) = res {
+        return Ok(user);
+    }
+    Err(ServerError::InvalidLogin)
 }
 
 pub(super) async fn get_api_users(db: &sqlx::SqlitePool) -> Result<Vec<UserList>> {
