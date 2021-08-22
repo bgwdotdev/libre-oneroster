@@ -498,17 +498,17 @@ CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
         , 'role', RoleType.token
         , 'primary', Enrollments."primary"
         , 'user', json_object(
-            'href', 'users' || Enrollments.userSourcedId
+            'href', 'users/' || Enrollments.userSourcedId
             , 'sourcedId', Enrollments.userSourcedId
             , 'type', 'user'
         )
         , 'class', json_object(
-            'href', 'classes' || Enrollments.classSourcedId
+            'href', 'classes/' || Enrollments.classSourcedId
             , 'sourcedId', Enrollments.classSourcedId
             , 'type', 'class'
         )
         , 'school', json_object(
-            'href', 'orgs' || Enrollments.orgSourcedId
+            'href', 'orgs/' || Enrollments.orgSourcedId
             , 'sourcedId', Enrollments.orgSourcedId
             , 'type', 'org'
         )
