@@ -185,6 +185,36 @@ create_get_db!(
     "SELECT enrollments FROM EnrollmentsJsonArray",
     enrollments
 );
+create_get_db!(
+    get_all_grading_periods,
+    model::AcademicSessions,
+    "SELECT academicSessions AS academic_sessions FROM VwORGetAllGradingPeriods",
+    academic_sessions
+);
+create_get_db!(
+    get_all_schools,
+    model::Orgs,
+    "SELECT orgs FROM VwORGetAllSchools",
+    orgs
+);
+create_get_db!(
+    get_all_students,
+    model::Users,
+    "SELECT users FROM VwORGetAllStudents",
+    users
+);
+create_get_db!(
+    get_all_teachers,
+    model::Users,
+    "SELECT users FROM VwORGetAllTeachers",
+    users
+);
+create_get_db!(
+    get_all_terms,
+    model::AcademicSessions,
+    "SELECT academicSessions AS academic_sessions FROM VwOrGetAllTerms",
+    academic_sessions
+);
 
 macro_rules! create_get_db_by_id {
     ($name:ident, $data:ty, $query:literal, $object:ident) => {
@@ -202,10 +232,70 @@ macro_rules! create_get_db_by_id {
 }
 
 create_get_db_by_id!(
+    get_academic_session,
+    model::AcademicSessionSingle,
+    r#"SELECT academicSession AS "academic_session: String" FROM VwORGetAcademicSession WHERE json_extract(academicSession, '$.academicSession.sourcedId') = ?"#,
+    academic_session
+);
+create_get_db_by_id!(
     get_class,
-    model::ClassId,
+    model::ClassSingle,
     r#"SELECT class AS "class: String" FROM VwORGetClass WHERE json_extract(class, '$.class.sourcedId') = ?"#,
     class
+);
+create_get_db_by_id!(
+    get_course,
+    model::CourseSingle,
+    r#"SELECT course AS "course: String" FROM VwORGetCourse WHERE json_extract(course, '$.course.sourcedId') = ?"#,
+    course
+);
+create_get_db_by_id!(
+    get_grading_period,
+    model::AcademicSessionSingle,
+    r#"SELECT academicSession AS "academic_session: String" FROM VwORGetGradingPeriod WHERE json_extract(academicSession, '$.academicSession.sourcedId') = ?"#,
+    academic_session
+);
+create_get_db_by_id!(
+    get_enrollment,
+    model::EnrollmentSingle,
+    r#"SELECT enrollment AS "enrollment: String" FROM VwORGetEnrollment WHERE json_extract(enrollment, '$.enrollment.sourcedId') = ?"#,
+    enrollment
+);
+create_get_db_by_id!(
+    get_org,
+    model::OrgSingle,
+    r#"SELECT org AS "org: String" FROM VwORGetOrg WHERE json_extract(org, '$.org.sourcedId') = ?"#,
+    org
+);
+create_get_db_by_id!(
+    get_school,
+    model::OrgSingle,
+    r#"SELECT org AS "org: String" FROM VwORGetSchool WHERE json_extract(org, '$.org.sourcedId') = ?"#,
+    org
+);
+create_get_db_by_id!(
+    get_student,
+    model::UserSingle,
+    r#"SELECT user AS "user: String" FROM VwORGetStudent WHERE json_extract(user, '$.user.sourcedId') = ?"#,
+    user
+);
+create_get_db_by_id!(
+    get_teacher,
+    model::UserSingle,
+    r#"SELECT user AS "user: String" FROM VwORGetTeacher WHERE json_extract(user, '$.user.sourcedId') = ?"#,
+    user
+);
+create_get_db_by_id!(
+    get_term,
+    model::AcademicSessionSingle,
+    r#"SELECT academicSession AS "academic_session: String" FROM VwORGetTerm WHERE json_extract(academicSession, '$.academicSession.sourcedId') = ?"#,
+    academic_session
+);
+create_get_db_by_id!(
+    get_user,
+    model::UserSingle,
+    r#"SELECT user AS "user: String" FROM VwORGetUser WHERE json_extract(user, '$.user.sourcedId') = ?"#,
+    user
 );
 
 macro_rules! create_put_db {
