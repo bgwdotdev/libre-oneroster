@@ -1,3 +1,8 @@
+FROM registry.opensuse.org/opensuse/busybox AS base
+# Generate users early to ensure consistent IDs on rebuild
+RUN addgroup oneroster && \
+    adduser -S -G oneroster oneroster
+
 FROM registry.opensuse.org/opensuse/tumbleweed AS builder
 # install deps
 RUN zypper ref && zypper in -y \
@@ -46,11 +51,13 @@ RUN mkdir --parents /opt/oneroster/bin && \
         lib64/libonig.*
 
 
-FROM registry.opensuse.org/opensuse/busybox
+FROM base AS final
 WORKDIR /opt/oneroster
 COPY --from=builder /opt/oneroster/build/oneroster.tar .
 RUN tar x -f oneroster.tar && \
-    rm oneroster.tar
+    rm oneroster.tar && \
+    chown -R oneroster:oneroster /opt/oneroster
+USER oneroster
 ENV PATH "/opt/oneroster/bin:${PATH}"
 ENV LD_LIBRARY_PATH "/opt/oneroster/lib64"
 ENTRYPOINT [ "oneroster" ]
