@@ -240,8 +240,20 @@ pub struct Classes {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct ClassSingle {
+    pub class: Class,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct AcademicSessions {
     pub academic_sessions: Vec<AcademicSession>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AcademicSessionSingle {
+    pub academic_session: AcademicSession,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
@@ -258,8 +270,20 @@ pub struct Orgs {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct OrgSingle {
+    pub org: Org,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Users {
     pub users: Vec<User>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct UserSingle {
+    pub user: User,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
@@ -276,6 +300,18 @@ pub struct Courses {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct CourseSingle {
+    pub course: Course,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Enrollments {
     pub enrollments: Vec<Enrollment>,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct EnrollmentSingle {
+    pub enrollment: Enrollment,
 }

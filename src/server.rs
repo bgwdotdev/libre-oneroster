@@ -55,7 +55,40 @@ create_get_endpoint!(get_all_users, users, "users");
 create_get_endpoint!(get_all_subjects, subjects, "subjects");
 create_get_endpoint!(get_all_courses, courses, "courses");
 create_get_endpoint!(get_all_enrollments, enrollments, "enrollments");
-// enrollment
+create_get_endpoint!(
+    get_all_grading_periods,
+    academic_sessions,
+    "academicSessions"
+);
+create_get_endpoint!(get_all_schools, orgs, "orgs");
+create_get_endpoint!(get_all_students, users, "users");
+create_get_endpoint!(get_all_teachers, users, "users");
+create_get_endpoint!(get_all_terms, academic_sessions, "academicSessions");
+
+macro_rules! create_get_endpoint_by_id {
+    ($name:ident) => {
+        async fn $name(req: Request<State>) -> tide::Result {
+            let id = req.param("id")?;
+            let data = db::$name(&req.state().db, id).await?;
+            Ok(tide::Response::builder(200)
+                .content_type(mime::JSON)
+                .header("x-total-count", "1")
+                .body(json!(data).to_string())
+                .build())
+        }
+    };
+}
+create_get_endpoint_by_id!(get_academic_session);
+create_get_endpoint_by_id!(get_class);
+create_get_endpoint_by_id!(get_course);
+create_get_endpoint_by_id!(get_grading_period);
+create_get_endpoint_by_id!(get_enrollment);
+create_get_endpoint_by_id!(get_org);
+create_get_endpoint_by_id!(get_school);
+create_get_endpoint_by_id!(get_student);
+create_get_endpoint_by_id!(get_teacher);
+create_get_endpoint_by_id!(get_term);
+create_get_endpoint_by_id!(get_user);
 
 macro_rules! create_put_endpoint {
     ($i:ident) => {
@@ -123,22 +156,40 @@ pub async fn run(config: Config) -> tide::Result<()> {
         .at("/")
         .get(|_| async { Ok("hello protected world\n") });
     authsrv.at("/orgs").get(get_all_orgs).put(put_orgs);
+    authsrv.at("/orgs/:id").get(get_org);
+    authsrv.at("/schools").get(get_all_schools);
+    authsrv.at("/schools/:id").get(get_school);
     authsrv.at("/classes").get(get_all_classes).put(put_classes);
+    authsrv.at("/classes/:id").get(get_class);
     authsrv
         .at("/academicSessions")
         .get(get_all_academic_sessions)
         .put(put_academic_sessions);
+    authsrv
+        .at("/academicSessions/:id")
+        .get(get_academic_session);
+    authsrv.at("/gradingPeriods").get(get_all_grading_periods);
+    authsrv.at("/gradingPeriods/:id").get(get_grading_period);
     authsrv.at("/periods").get(get_all_periods).put(put_periods);
     authsrv
         .at("/subjects")
         .get(get_all_subjects)
         .put(put_subjects);
     authsrv.at("/courses").get(get_all_courses).put(put_courses);
+    authsrv.at("/courses/:id").get(get_course);
     authsrv.at("/users").get(get_all_users).put(put_users);
+    authsrv.at("/users/:id").get(get_user);
+    authsrv.at("/students").get(get_all_students);
+    authsrv.at("/students/:id").get(get_student);
+    authsrv.at("/teachers").get(get_all_teachers);
+    authsrv.at("/teachers/:id").get(get_teacher);
+    authsrv.at("/terms").get(get_all_terms);
+    authsrv.at("/terms/:id").get(get_term);
     authsrv
         .at("/enrollments")
         .get(get_all_enrollments)
         .put(put_enrollments);
+    authsrv.at("/enrollments/:id").get(get_enrollment);
     // user management
     let mut adminsrv = tide::with_state(srv.state().clone());
     adminsrv.with(auth::middleware::Jwt::new(vec!["admin".to_string()]));

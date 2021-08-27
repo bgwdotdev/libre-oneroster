@@ -372,6 +372,45 @@ CREATE VIEW IF NOT EXISTS AcademicSessionsJson AS
         a.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS VwORGetAcademicSession AS
+    SELECT json_object(
+        'academicSession', json(academicSession)
+    ) AS 'academicSession'
+FROM AcademicSessionsJson
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetAllGradingPeriods AS
+    SELECT json_object(
+        'academicSessions', json_group_array(json(academicSession))
+    ) AS 'academicSessions'
+FROM AcademicSessionsJson
+WHERE json_extract(academicSession, '$.type') = 'gradingPeriod'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetGradingPeriod AS
+    SELECT json_object(
+        'academicSession', academicSession
+    ) AS 'academicSession'
+FROM academicSessionsJson
+WHERE json_extract(academicSession, '$.type') = 'gradingPeriod'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetAllTerms AS
+    SELECT json_object(
+        'academicSessions', json_group_array(json(academicSession))
+    ) AS 'academicSessions'
+FROM AcademicSessionsJson
+WHERE json_extract(academicSession, '$.type') = 'term'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetTerm AS
+    SELECT json_object(
+        'academicSession', json(academicSession)
+    ) AS 'academicSession'
+FROM AcademicSessionsJson
+WHERE json_extract(academicSession, '$.type') = 'term'
+;
+
 CREATE VIEW IF NOT EXISTS PeriodsJsonArray AS
     SELECT json_object(
         'periods', json_group_array(json(period))
@@ -482,6 +521,13 @@ CREATE VIEW IF NOT EXISTS CoursesJson AS
         Courses.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS VwORGetCourse AS
+    SELECT json_object(
+        'course', json(course)
+    ) AS 'course'
+FROM CoursesJson
+;
+
 -- OR 5.5
 CREATE VIEW IF NOT EXISTS EnrollmentsJsonArray AS
     SELECT json_object(
@@ -498,17 +544,17 @@ CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
         , 'role', RoleType.token
         , 'primary', Enrollments."primary"
         , 'user', json_object(
-            'href', 'users' || Enrollments.userSourcedId
+            'href', 'users/' || Enrollments.userSourcedId
             , 'sourcedId', Enrollments.userSourcedId
             , 'type', 'user'
         )
         , 'class', json_object(
-            'href', 'classes' || Enrollments.classSourcedId
+            'href', 'classes/' || Enrollments.classSourcedId
             , 'sourcedId', Enrollments.classSourcedId
             , 'type', 'class'
         )
         , 'school', json_object(
-            'href', 'orgs' || Enrollments.orgSourcedId
+            'href', 'orgs/' || Enrollments.orgSourcedId
             , 'sourcedId', Enrollments.orgSourcedId
             , 'type', 'org'
         )
@@ -523,6 +569,13 @@ CREATE VIEW IF NOT EXISTS EnrollmentsJson AS
         Enrollments.sourcedId
     ORDER BY
         Enrollments.sourcedId
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetEnrollment AS
+    SELECT json_object(
+        'enrollment', json(enrollment)
+    ) AS 'enrollment'
+FROM EnrollmentsJson
 ;
 
 -- TODO: update styling
@@ -568,6 +621,29 @@ CREATE VIEW IF NOT EXISTS OrgsJson AS
         Orgs.sourcedId
     ORDER BY
         Orgs.sourcedId
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetOrg AS
+    SELECT json_object(
+        'org', json(org)
+    ) AS 'org'
+FROM OrgsJson
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetAllSchools AS
+    SELECT json_object(
+        'orgs', json_group_array(json(org))
+    ) AS 'orgs'
+FROM OrgsJson
+WHERE json_extract(org, '$.type') = 'school'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetSchool AS
+    SELECT json_object(
+        'org', json(org)
+    ) AS 'org'
+FROM OrgsJson
+WHERE json_extract(org, '$.type') = 'school'
 ;
 
 CREATE VIEW IF NOT EXISTS ClassesJsonArray AS
@@ -658,6 +734,13 @@ CREATE VIEW IF NOT EXISTS ClassesJson AS
         Classes.sourcedId
 ;
 
+CREATE VIEW IF NOT EXISTS VwORGetClass AS
+    SELECT json_object(
+        'class', json(class)
+    ) AS 'class'
+FROM ClassesJson
+;
+
 -- OR 5.11
 CREATE VIEW IF NOT EXISTS UsersJsonArray AS
     SELECT json_object(
@@ -735,6 +818,45 @@ CREATE VIEW IF NOT EXISTS UsersJson AS
         Users.sourcedId
     ORDER BY
         Users.sourcedId
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetUser AS
+    SELECT json_object(
+        'user', json("user")
+    ) AS 'user'
+FROM UsersJson
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetAllStudents AS
+    SELECT json_object(
+        'users', json_group_array(json("user"))
+    ) AS 'users'
+FROM UsersJson
+WHERE json_extract("user", '$.role') = 'student'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetStudent AS
+    SELECT json_object(
+        'user', json("user")
+    ) AS 'user'
+FROM UsersJson
+WHERE json_extract("user", '$.role') = 'student'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetAllTeachers AS
+    SELECT json_object(
+        'users', json_group_array(json("user"))
+    ) AS 'users'
+FROM UsersJson
+WHERE json_extract("user", '$.role') = 'teacher'
+;
+
+CREATE VIEW IF NOT EXISTS VwORGetTeacher AS
+    SELECT json_object(
+        'user', json("user")
+    ) AS 'user'
+FROM UsersJson
+WHERE json_extract("user", '$.role') = 'teacher'
 ;
 
 CREATE TRIGGER IF NOT EXISTS TriggerUpsertAcademicSessionsJson
