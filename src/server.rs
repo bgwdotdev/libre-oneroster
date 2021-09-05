@@ -90,6 +90,30 @@ create_get_endpoint_by_id!(get_teacher);
 create_get_endpoint_by_id!(get_term);
 create_get_endpoint_by_id!(get_user);
 
+macro_rules! create_get_collection_endpoint_by_id {
+    ($name:ident, $object:ident, $wrapper:literal) => {
+        async fn $name(req: Request<State>) -> tide::Result {
+            let id = req.param("id")?;
+            let params = req.query()?;
+            let data = db::$name(&req.state().db, &id).await?;
+            let links = params::link_header_builder(&req, &params, data.$object.len()).await;
+            let (output, total) =
+                params::apply_parameters(&json!(data).to_string(), &params, $wrapper).await?;
+            Ok(tide::Response::builder(200)
+                .header("link", links)
+                .header("x-total-count", total.trim())
+                .content_type(mime::JSON)
+                .body(output)
+                .build())
+        }
+    };
+}
+
+create_get_collection_endpoint_by_id!(get_classes_for_school, classes, "classes");
+create_get_collection_endpoint_by_id!(get_students_for_school, users, "users");
+create_get_collection_endpoint_by_id!(get_teachers_for_school, users, "users");
+create_get_collection_endpoint_by_id!(get_enrollments_for_school, enrollments, "enrollments");
+
 macro_rules! create_put_endpoint {
     ($i:ident) => {
         async fn $i(mut req: Request<State>) -> tide::Result {
@@ -159,6 +183,18 @@ pub async fn run(config: Config) -> tide::Result<()> {
     authsrv.at("/orgs/:id").get(get_org);
     authsrv.at("/schools").get(get_all_schools);
     authsrv.at("/schools/:id").get(get_school);
+    authsrv
+        .at("/schools/:id/classes")
+        .get(get_classes_for_school);
+    authsrv
+        .at("/schools/:id/students")
+        .get(get_students_for_school);
+    authsrv
+        .at("/schools/:id/teachers")
+        .get(get_teachers_for_school);
+    authsrv
+        .at("/schools/:id/enrollments")
+        .get(get_enrollments_for_school);
     authsrv.at("/classes").get(get_all_classes).put(put_classes);
     authsrv.at("/classes/:id").get(get_class);
     authsrv
