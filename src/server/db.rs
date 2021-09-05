@@ -300,6 +300,46 @@ create_get_db_by_id!(
     r#"SELECT user AS "user: String" FROM VwORGetUser WHERE json_extract(user, '$.user.sourcedId') = ?"#,
     user
 );
+create_get_db_by_id!(
+    get_classes_for_school,
+    model::Classes,
+    r#"SELECT json_object('classes', json_group_array(json(class))) AS 'classes'
+    FROM ClassesJson
+    WHERE json_extract(class, '$.school.sourcedId') = ?"#,
+    classes
+);
+create_get_db_by_id!(
+    get_students_for_school,
+    model::Users,
+    r#"
+    SELECT json_object('users', json_group_array(json(user))) AS 'users'
+    FROM UsersJson, json_each(json_extract(user, '$.orgs'))
+    WHERE json_extract(json_each.value, '$.sourcedId') = ?
+        AND json_extract(user, '$.role') = "student"
+    "#,
+    users
+);
+create_get_db_by_id!(
+    get_teachers_for_school,
+    model::Users,
+    r#"
+    SELECT json_object('users', json_group_array(json(user))) AS 'users'
+    FROM UsersJson, json_each(json_extract(user, '$.orgs'))
+    WHERE json_extract(json_each.value, '$.sourcedId') = ?
+        AND json_extract(user, '$.role') = "teacher"
+    "#,
+    users
+);
+create_get_db_by_id!(
+    get_enrollments_for_school,
+    model::Enrollments,
+    r#"
+    SELECT json_object('enrollments', json_group_array(json(enrollment))) AS 'enrollments'
+    FROM EnrollmentsJson
+    WHERE json_extract(enrollment, '$.school.sourcedId') = ?
+    "#,
+    enrollments
+);
 
 macro_rules! create_put_db {
     ($name:ident, $data:ty, $query:literal, $object:ident) => {
