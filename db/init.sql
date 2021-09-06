@@ -1,12 +1,13 @@
-INSERT
-    OR IGNORE INTO scopes (
-        scope)
-    VALUES (
-        'roster-core.readonly')
-    , (
-        'roster-core.createput')
-    , (
-        'admin.readonly');
+INSERT OR IGNORE INTO scopes (scope) VALUES
+    ('roster-core.readonly')
+    , ('roster-core.createput')
+    , ('roster.readonly')
+    , ('roster.cerateput')
+    , ('gradebook.readonly')
+    , ('gradebook.createput')
+    , ('gradebook.delete')
+    , ('admin.readonly')
+;
 
 INSERT
     OR IGNORE INTO StatusType (
@@ -96,3 +97,11 @@ INSERT OR IGNORE INTO GradeType (token, description) VALUES
     ('PS', 'Postsecondary'),
     ('UG', 'Ungraded'),
     ('Other', 'Other');
+
+INSERT OR IGNORE INTO ScoreStatusType (token) VALUES
+    ('exempt')
+    , ('fully graded')
+    , ('not submitted')
+    , ('partially graded')
+    , ('submitted')
+;
