@@ -20,20 +20,20 @@ And from:
 
 Backed by an json(SQLite) database.
 
-## Build 
+## Build
 
-depends on libjq and libonigurama to build
+### Container
+Using or referencing the Dockerfile would be the best way to build. As there are a few C libraries in use, it cannot be built without sourcing shared libs.  
+The main non-rust based dependencies being:
+    * libjq -- for supporting being able to run any filters on any data endpoint
+    * liboniguaram -- for jq regex support (to be removed?)
+    * libopenssl -- for the certificate parsing for JWT generation
 
-```bash
-#opensuse
-zypper install libjq-devel oniguruma-devel
-echo "export JQ_LIB_DIR=/usr/lib64/libjq.so" >> .env
-echo "export DATABASE_URL=sqlite:oneroster.db" >> .env
-cargo build 
-```
+TODO: Add static linking build
 
 ## Server setup
 
+### cli
 ```bash
 oneroster server --help
 # generate RSA x509 key pair for use with auth
@@ -47,13 +47,32 @@ step certificate create oneroster \
     --profile self-signed --subtle
 
 # sets up database and template config and provides one-time root creds
-oneroster server --init --database myoneroster.db \
-    --public-key oneroster.pem --private-key oneroster.key.pem \
-    --web-public-key oneroster.pem --web-private-key oneroster.key.pem
+oneroster server \
+    --init \
+    --database myoneroster.db \
+    --public-key oneroster.pem \
+    --private-key oneroster.key.pem \
+    --web-public-key oneroster.pem \
+    --web-private-key oneroster.key.pem
 # Can remove --init after database has been initialised for the first time
-oneroster server --database myoneroster.db -j oneroster.pem -J oneroster.key.pem -w oneroster.pem -W oneroster.key.pem
+oneroster server -d myoneroster.db -j oneroster.pem -J oneroster.key.pem -w oneroster.pem -W oneroster.key.pem
 ```
-
+### Container
+```bash
+podman run \
+    --detach \
+    --name oneroster \
+    --port 8080:8080 \
+    --volume $(pwd)/etc:/etc/opt/oneroster:z
+    --volume $(pwd)/var:/var/opt/oneroster:z
+    oneroster:1.0.0 \
+        oneroster server \
+        -d /var/opt/oneroster/oneroster.db \
+        -j /etc/opt/oneroster/oneroster.pem \
+        -J /etc/opt/oneroster/oneroster.key.pem \
+        -w /etc/opt/oneroster/oneroster.pem \
+        -W /etc/opt/oneroster/oneroster.key.pem
+```
 ## Calling API with traditional tools
 
 ```bash
@@ -63,8 +82,15 @@ oneroster="${base}/ims/oneroster/v1p1"
 CI="<username>"
 read -p "Client secret: " CS
 
-# get bearer token using default root creds 
-token=$(xh post $base/auth/login -f client_id=$CI client_secret=$CS scope="roster-core.readonly roster-core.createput" | jq .access_token | xargs)
+# get bearer token using default root creds
+token=$(
+    xh post $base/auth/login -f \
+        client_id=$CI \
+        client_secret=$CS \
+        scope="roster-core.readonly roster-core.createput" \
+    | jq .access_token \
+    | xargs
+)
 
 # create sample data and add
 echo '{"academicSessions": [{"sourcedId": 01, "status": "active"}]}' > example.json
