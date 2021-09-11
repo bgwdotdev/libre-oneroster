@@ -1,6 +1,6 @@
 [package]
 name = "libre-oneroster"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["fffnite <bradley.whiteford@live.co.uk>"]
 edition = "2018"
 
