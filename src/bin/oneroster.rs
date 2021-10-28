@@ -51,13 +51,17 @@ fn cli() -> Result<(), ServerError> {
                         .about("The source database ado connection string")
                         .short('d')
                         .long("database")
+                        .env("OR_MIS")
                         .takes_value(true)
                         .value_name("ADO_STRING")
                         .required(true)
                         .long_about(
-                            "tcp:ip\\instance;database=MyDatabase;\
-                            username=MyUser;password=MySecret;\
-                            encryption=true;TrustServerCertificate=true;",
+                            "Server=tcp:ip\\instance;\
+                            Database=MyDatabase;\
+                            Username=MyUser;\
+                            Password=MySecret;\
+                            Encrypt=true;\
+                            TrustServerCertificate=true;",
                         ),
                 )
                 .arg(
@@ -65,6 +69,7 @@ fn cli() -> Result<(), ServerError> {
                         .about("url to the oneroster API")
                         .short('u')
                         .long("url")
+                        .env("OR_URL")
                         .takes_value(true)
                         .value_name("URL")
                         .required(true),
@@ -74,7 +79,9 @@ fn cli() -> Result<(), ServerError> {
                         .about("client id to the oneroster API")
                         .short('i')
                         .long("client_id")
+                        .env("OR_CI")
                         .takes_value(true)
+                        .value_name("STRING")
                         .required(true),
                 )
                 .arg(
@@ -82,7 +89,9 @@ fn cli() -> Result<(), ServerError> {
                         .about("client secret to the oneroster API")
                         .short('p')
                         .long("client_secret")
+                        .env("OR_CS")
                         .takes_value(true)
+                        .value_name("STRING")
                         .required(true),
                 )
                 .arg(
@@ -90,7 +99,9 @@ fn cli() -> Result<(), ServerError> {
                         .about("oneroster scope required for calls")
                         .short('s')
                         .long("scope")
+                        .env("OR_SCOPE")
                         .takes_value(true)
+                        .value_name("STRING")
                         .default_value("roster-core.createput roster.createput"),
                 )
                 .arg(
@@ -98,6 +109,7 @@ fn cli() -> Result<(), ServerError> {
                         .about("The date/time of the last sync")
                         .short('t')
                         .long("delta")
+                        .env("OR_DELTA")
                         .takes_value(true)
                         .value_name("DATE_TIME")
                         .default_value("2015-01-01 00:00:00"),
@@ -107,6 +119,7 @@ fn cli() -> Result<(), ServerError> {
                         .about("The academic year to sync")
                         .short('y')
                         .long("year")
+                        .env("OR_YEAR")
                         .takes_value(true)
                         .value_name("YYYY")
                         .required(true),
