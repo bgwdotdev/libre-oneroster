@@ -1,0 +1,4 @@
+FROM ghcr.io/fffnite/libre-oneroster:0.2.0
+USER oneroster
+ENTRYPOINT [ "oneroster", "sync" ]
+CMD ["-h"]
