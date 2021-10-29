@@ -142,11 +142,12 @@ DROP TABLE IF EXISTS #OnerosterPupilParents;
 SELECT addresses.intPersonId AS parentId, pupils.txtSchoolID AS pupilId
 INTO #OnerosterPupilParents
 FROM TblPupilManagementAddresses addresses
-	INNER JOIN TblPupilManagementAddressLink addressLink ON addressLink.intAddressID = addresses.TblPupilManagementAddressesID
-	INNER JOIN TblPupilManagementPupils pupils ON pupils.txtSchoolID = addressLink.txtSchoolID
+    INNER JOIN TblPupilManagementAddressLink addressLink ON addressLink.intAddressID = addresses.TblPupilManagementAddressesID
+    INNER JOIN TblPupilManagementPupils pupils ON pupils.txtSchoolID = addressLink.txtSchoolID
 WHERE addresses.intPersonId IS NOT NULL
-	AND addresses.txtAddressType = 'Home'
-	AND (addresses.intMailMergeAll = 1 OR addresses.intCorrespondenceMailMerge = 1)
+    AND addresses.txtContactsForename <> ''
+    AND addresses.txtAddressType = 'Home'
+    AND (addresses.intMailMergeAll = 1 OR addresses.intCorrespondenceMailMerge = 1)
     AND pupils.txtSubmitDateTime > @p1
     AND pupils.txtEmailAddress IS NOT NULL
     AND ( pupils.intSystemStatus = 1 OR pupils.intSystemStatus = 0 )
@@ -156,11 +157,12 @@ WHERE addresses.intPersonId IS NOT NULL
 UNION
 SELECT addresses.intSecondaryPersonId, pupils.txtSchoolID
 FROM TblPupilManagementAddresses addresses
-	INNER JOIN TblPupilManagementAddressLink addressLink  ON addressLink.intAddressID = addresses.TblPupilManagementAddressesID
-	INNER JOIN TblPupilManagementPupils pupils ON pupils.txtSchoolID = addressLink.txtSchoolID
+    INNER JOIN TblPupilManagementAddressLink addressLink  ON addressLink.intAddressID = addresses.TblPupilManagementAddressesID
+    INNER JOIN TblPupilManagementPupils pupils ON pupils.txtSchoolID = addressLink.txtSchoolID
 WHERE addresses.intSecondaryPersonId IS NOT NULL
-	AND addresses.txtAddressType = 'Home'
-	AND (addresses.intMailMergeAll = 1 OR addresses.intCorrespondenceMailMerge = 1)
+    AND addresses.txtSecondaryForename <> ''
+    AND addresses.txtAddressType = 'Home'
+    AND (addresses.intMailMergeAll = 1 OR addresses.intCorrespondenceMailMerge = 1)
     AND pupils.txtSubmitDateTime > @p1
     AND pupils.txtEmailAddress IS NOT NULL
     AND ( pupils.intSystemStatus = 1 OR pupils.intSystemStatus = 0 )
@@ -206,6 +208,7 @@ SELECT cast((
         -- TODO: Remove & WHERE dateLastModified IS NOT NULL?
         -- 1 current pupil / -1 leaver / 0 To start
         AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
+        AND pupils.txtPreName <> ''
     ORDER BY sourcedId
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
     ) AS nvarchar(max)
@@ -240,7 +243,7 @@ SELECT cast((
     FROM TblStaff
     WHERE SubmitDate IS NOT NULL
         AND SubmitDate > @p1
-        AND PreName IS NOT NULL -- deals with service accounts
+        AND PreName <> '' -- deals with service accounts
     ORDER BY sourcedId
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('users')
     ) AS nvarchar(max)
@@ -393,6 +396,7 @@ SELECT cast((
     WHERE setlists.txtSubmitDateTime > @p1
         --AND pupils.txtSubmitDateTime > @p1 -- TODO: decide if want pupil status monitored
         AND pupils.txtEmailAddress IS NOT NULL
+        AND pupils.txtPreName <> ''
         AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
     ORDER BY sourcedId
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
@@ -419,6 +423,7 @@ SELECT cast((
     WHERE txtForm IS NOT NULL
 		AND txtSubmitDateTime > @p1
         AND txtEmailAddress IS NOT NULL
+        AND txtPreName <> ''
         AND ( intSystemStatus = 1 OR intSystemStatus = 0 )
     ORDER BY sourcedId
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER --, root('enrollments')
