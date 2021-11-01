@@ -9,18 +9,35 @@ pub(crate) struct NewCreds {
     pub(crate) encrypt: String,
 }
 
+// TODO: write tests in rust
 pub(crate) async fn login(
     creds: server::Creds,
     db: &sqlx::SqlitePool,
     key: &jsonwebtoken::EncodingKey,
 ) -> Result<jwt::TokenReturn> {
-    let compare = db::get_api_creds(&creds.client_id, db).await?;
-    let verify = bcrypt::verify(&creds.client_secret, &compare.client_secret)?;
-    if verify {
-        let scopes = verify_scopes(&compare.scope, &creds.scope).await?;
-        let token = jwt::create_token(creds.client_id, scopes, key).await?;
-        return Ok(token);
-    }
+    let compare = db::get_api_creds(&creds.client_id, db).await;
+    match compare {
+        Ok(compare) => {
+            let verify = bcrypt::verify(&creds.client_secret, &compare.client_secret)?;
+            if verify {
+                let scopes = verify_scopes(&compare.scope, &creds.scope).await?;
+                let token = jwt::create_token(creds.client_id, scopes, key).await?;
+                return Ok(token);
+            }
+        }
+        Err(_) => {
+            // Security
+            // This case is designed to negate a timing attack by always hashing/evaluating the
+            // user password even if the username is incorrect to prevent username bruteforcing via
+            // time delta comparisons between hashing/non-hashing error operations
+            bcrypt::verify(
+                &creds.client_secret,
+                "$2b$12$54Zvtx.e/V/nRPo0PUYrxOHqXZywSKzM7LLFqC/p59F0x87SsZdvW",
+            )?;
+            // This case should ALWAYS FAIL even if the password matches the above static hash
+            return Err(server::ServerError::InvalidLogin);
+        }
+    };
     Err(server::ServerError::InvalidLogin)
 }
 
