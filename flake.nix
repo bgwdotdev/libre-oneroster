@@ -12,9 +12,10 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-
+        name = "oneroster";
+        version = "0.1.0";
       in
-      {
+      rec {
         devShell = pkgs.mkShell {
           packages = with pkgs; [
             cargo
@@ -31,8 +32,8 @@
         };
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "oneroster";
-          version = "0.1.0";
+          pname = name;
+          version = version;
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = [
@@ -52,6 +53,19 @@
           JQ_LIB_DIR = "${pkgs.jq.lib}";
           DATABASE_URL = "sqlite:db/oneroster.db";
           PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+        };
+        packages.docker = pkgs.dockerTools.buildImage {
+          name = name;
+          tag = version;
+          copyToRoot = pkgs.buildEnv {
+            name = name;
+            paths = [
+              packages.default
+              pkgs.dockerTools.caCertificates
+              pkgs.dockerTools.fakeNss
+            ];
+          };
+          config.EntryPoint = [ "/bin/oneroster" ];
         };
       }
     );
