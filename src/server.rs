@@ -134,7 +134,6 @@ create_put_endpoint!(put_courses);
 create_put_endpoint!(put_classes);
 create_put_endpoint!(put_enrollments);
 
-#[derive(Debug)]
 pub struct Config {
     pub database: String,
     pub init: bool,
@@ -147,7 +146,7 @@ pub struct Config {
 
 pub async fn run(config: Config) -> tide::Result<()> {
     log::info!("starting server...");
-    log::debug!("configuration: {:?}", config);
+    //log::debug!("configuration: {:?}", config);
 
     let path = "sqlite:".to_owned() + &config.database;
     let pool = match db::init(&path, config.init).await {
