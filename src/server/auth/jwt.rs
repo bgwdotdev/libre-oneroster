@@ -53,10 +53,7 @@ pub(crate) async fn decode_token(
     token: String,
     key: &jsonwebtoken::DecodingKey,
 ) -> Result<jsonwebtoken::TokenData<Claims>> {
-    let val = jsonwebtoken::Validation {
-        algorithms: vec![jsonwebtoken::Algorithm::RS256],
-        ..Default::default()
-    };
+    let val = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::RS256);
     let claims = jsonwebtoken::decode::<Claims>(&token, key, &val)?;
     Ok(claims)
 }
