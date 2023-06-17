@@ -47,7 +47,7 @@ pub(crate) async fn generate_credentials() -> Result<NewCreds> {
     let scope = "changeme".to_string();
     let creds = NewCreds {
         creds: server::Creds {
-            client_id: Uuid::new_v4().to_hyphenated().to_string(),
+            client_id: Uuid::new_v4().hyphenated().to_string(),
             client_secret,
             scope,
         },
