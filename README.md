@@ -63,7 +63,7 @@ CI="myuser"
 CS="mysecret"
 scope="admin.readonly roster-core.readonly roster-core.createput"
 
-token=$(https --verify false --form POST localhost:8080/auth/login client_id=$CI client_secret=$CS scope="$scopes" | jq .access_token | xargs)
+token=$(https --verify false --form POST localhost:8080/auth/login client_id=$CI client_secret=$CS scope="$scope" | jq .access_token | xargs)
 
 # define sample data
 echo '{
