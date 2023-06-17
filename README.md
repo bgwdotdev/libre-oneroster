@@ -1,6 +1,6 @@
 # Libre OneRoster
 
-A free, opensource and crossplatform oneroster 1.1 implementation in rust including:
+A free, open-source and cross platform OneRoster 1.1 implementation in rust including:
 
     * client library and tools
     * server library and tools
@@ -54,11 +54,11 @@ oneroster server --init --database myoneroster.db \
 oneroster server --database myoneroster.db -j oneroster.pem -J oneroster.key.pem -w oneroster.pem -W oneroster.key.pem
 ```
 
-## Calling API from commandline
+## Calling API from command line
 
 In this example, we are going to be using the following command line tools: `httpie` `jq`
 ```bash
-# Get inital auth details from running oneroster server with --init flag
+# Get initial auth details from running oneroster server with --init flag
 CI="myuser"
 CS="mysecret"
 scope="admin.readonly roster-core.readonly roster-core.createput"
@@ -97,7 +97,7 @@ database="server=tcp:192.168.100.100,1434;TrustServerCertificate=true;database=m
 oneroster sync isams --database $isams --url $base --client_id $CI --client_secret $CS --scope roster-core.createput --year 2020
 ```
 
-## TOOD: Calling API with oneroster cli
+## TODO: Calling API with OneRoster cli
 ```bash
 oneroster login
 
@@ -107,3 +107,14 @@ oneroster put academicSessions @example.json
 oneroster export SDS
 oneroster export ASM
 ```
+
+
+## Development
+
+[Nix](https://nixos.org/) flakes are used for development and build tooling,
+use the following command for a developer shell: `nix develop`
+
+The application can also be build using `nix build` to create a normal build,
+or `nix build .#docker` to build a docker image which can then be loaded with
+`docker load -i ./result`
+
