@@ -73,32 +73,41 @@ podman run \
         -w /etc/opt/oneroster/oneroster.pem \
         -W /etc/opt/oneroster/oneroster.key.pem
 ```
-## Calling API with traditional tools
 
+## Calling API from commandline
+
+In this example, we are going to be using the following command line tools: `httpie` `jq`
 ```bash
-# use preferred option (httpie, xh, curl, invoke-restmethod, etc)
-base="https://oneroster.example.com"
-oneroster="${base}/ims/oneroster/v1p1"
-CI="<username>"
-read -p "Client secret: " CS
+# Get inital auth details from running oneroster server with --init flag
+CI="myuser"
+CS="mysecret"
+scope="admin.readonly roster-core.readonly roster-core.createput"
 
-# get bearer token using default root creds
-token=$(
-    xh post $base/auth/login -f \
-        client_id=$CI \
-        client_secret=$CS \
-        scope="roster-core.readonly roster-core.createput" \
-    | jq .access_token \
-    | xargs
-)
+token=$(https --verify false --form POST localhost:8080/auth/login client_id=$CI client_secret=$CS scope="$scopes" | jq .access_token | xargs)
 
-# create sample data and add
-echo '{"academicSessions": [{"sourcedId": 01, "status": "active"}]}' > example.json
-xh put $oneroster/academicSessions Authorizaton:"Bearer $token" < example.json
+# define sample data
+echo '{
+  "academicSessions": [
+    {
+      "sourcedId": "01",
+      "dateLastModified": "2021-01-01 00:00:00Z",
+      "status": "active",
+      "title": "exampleSession",
+      "startDate": "2021-01-01",
+      "endDate": "2021-02-01",
+      "type": "term",
+      "schoolYear": "2021"
+    }
+  ]
+}' > example.json
 
-# read sample data added
-xh get $oneroster/academicSessions Authorizaton:"Bearer $token"
+# write data
+https --verify false PUT localhost:8080/ims/oneroster/v1p1/academicSessions Authorization:"Bearer $token" < example.json
+
+# read data
+https --verify false GET localhost:8080/ims/oneroster/v1p1/academicSessions Authorization:"Bearer $token"
 ```
+
 
 ## Calling sync client with cli
 ```bash
