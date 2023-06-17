@@ -71,9 +71,9 @@
         apps.dockerPush = flake-utils.lib.mkApp {
           drv = pkgs.writeShellScriptBin "dockerPush" ''
             set -eu
-            OCI=$(nix build .#docker --no-link)
+            nix build .#docker -o oneroster
             REPO="git.bgw.dev/bgw/libre-oneroster:${version}"
-            ${pkgs.skopeo}/bin/skopeo copy --dest-creds "$CI_PACKAGE_WRITE" docker-image://$OCI docker://$REPO
+            ${pkgs.skopeo}/bin/skopeo copy --dest-creds "bgw:$CI_PACKAGE_WRITE" docker-archive:oneroster docker://$REPO
           '';
         };
       }
