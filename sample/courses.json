@@ -1,0 +1,36 @@
+{
+    "courses": [
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "org": {
+                "href": "orgs/016",
+                "sourcedId": "016",
+                "type": "org"
+            },
+            "sourcedId": "01",
+            "status": "active",
+            "title": "maths101"
+        },
+        {
+            "courseCode": "CS101",
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "grades": [
+                "10",
+                "11"
+            ],
+            "org": {
+                "href": "orgs/016",
+                "sourcedId": "016",
+                "type": "org"
+            },
+            "schoolYear": {
+                "href": "academicSessions/002",
+                "sourcedId": "002",
+                "type": "academicSession"
+            },
+            "sourcedId": "02",
+            "status": "active",
+            "title": "Computing Science 101"
+        }
+    ]
+}

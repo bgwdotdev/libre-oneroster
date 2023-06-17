@@ -5,12 +5,12 @@ mod params;
 
 pub use errors::*;
 use http_types::mime;
-use std::fs::File;
 use std::io::prelude::*;
 use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
 use tide_rustls::TlsListener;
+use async_std::prelude::*;
 
 type Result<T> = std::result::Result<T, ServerError>;
 
@@ -297,7 +297,7 @@ async fn check_token(req: tide::Request<State>) -> tide::Result<String> {
 }
 
 pub fn read_private_key(path: &str) -> Result<jsonwebtoken::EncodingKey> {
-    let mut file = File::open(path)?;
+    let mut file = std::fs::File::open(path)?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
     let private_key = jsonwebtoken::EncodingKey::from_rsa_pem(&buf)?;
@@ -305,7 +305,7 @@ pub fn read_private_key(path: &str) -> Result<jsonwebtoken::EncodingKey> {
 }
 
 pub fn read_public_key(path: &str) -> Result<jsonwebtoken::DecodingKey> {
-    let mut file = File::open(path)?;
+    let mut file = std::fs::File::open(path)?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
     let cert = openssl::x509::X509::from_pem(&buf)?;
@@ -318,33 +318,11 @@ pub fn read_public_key(path: &str) -> Result<jsonwebtoken::DecodingKey> {
 #[cfg(test)]
 #[async_std::test]
 async fn db() -> Result<()> {
-    let path = "sqlite:db/rust_test.db";
+    let path = "sqlite:./db/rust_test.db";
     db::init(path, true).await?;
     let pool = db::connect(path).await?;
-
-    sqlx::query(
-        r#"INSERT INTO academicSessions (sourcedId, data) values (
-            43278488,
-            json('{
-                "sourcedId" : "43278488",
-                "status" : "active"
-            }')
-        ) ON CONFLICT(sourcedId) DO UPDATE SET data=excluded.data"#,
-    )
-    .execute(&pool)
-    .await?;
-
-    sqlx::query(
-        r#"INSERT INTO academicSessions (sourcedId, data) values (
-            43278489,
-            json('{
-                "sourcedId" : "43278489",
-                "status" : "tobedeleted"
-            }')
-        ) ON CONFLICT(sourcedId) DO UPDATE SET data=excluded.data"#,
-    )
-    .execute(&pool)
-    .await?;
-
+    let content = async_std::fs::read_to_string("./sample/academicSessions.json").await?;
+    let json = serde_json::from_str(&content)?;
+    db::put_academic_sessions(json, &pool).await?;
     Ok(())
 }

@@ -1,0 +1,38 @@
+{
+    "periods": [
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "orgs": [
+                {
+                    "href": "users/016",
+                    "sourcedId": "016",
+                    "type": "org"
+                }
+            ],
+            "periodCode": "01",
+            "sourcedId": "01",
+            "status": "active",
+            "title": "first"
+        },
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "description": "second class of the day",
+            "orgs": [
+                {
+                    "href": "users/015",
+                    "sourcedId": "015",
+                    "type": "org"
+                },
+                {
+                    "href": "users/016",
+                    "sourcedId": "016",
+                    "type": "org"
+                }
+            ],
+            "periodCode": "02",
+            "sourcedId": "02",
+            "status": "active",
+            "title": "second"
+        }
+    ]
+}

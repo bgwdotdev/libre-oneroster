@@ -1,0 +1,78 @@
+{
+    "users": [
+        {
+            "agents": [
+                {
+                    "href": "users/002",
+                    "sourcedId": "002",
+                    "type": "user"
+                }
+            ],
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "enabledUser": 1,
+            "familyName": "Smith",
+            "givenName": "Bob",
+            "orgs": [
+                {
+                    "href": "orgs/015",
+                    "sourcedId": "015",
+                    "type": "user"
+                }
+            ],
+            "role": "student",
+            "sourcedId": "001",
+            "status": "active",
+            "username": "test01"
+        },
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "email": "test02@localhost.lan",
+            "enabledUser": 0,
+            "familyName": "Doe",
+            "givenName": "Jane",
+            "identifier": "test02",
+            "middleName": "Smith",
+            "orgs": [
+                {
+                    "href": "orgs/015",
+                    "sourcedId": "015",
+                    "type": "user"
+                }
+            ],
+            "password": "notReal",
+            "phone": "0123456789",
+            "role": "parent",
+            "sms": "0123456789",
+            "sourcedId": "002",
+            "status": "active",
+            "userIds": [
+                {
+                    "identifier": "test02@facebook.com",
+                    "type": "facebook"
+                },
+                {
+                    "identifier": "test02@gmail.com",
+                    "type": "google"
+                }
+            ],
+            "username": "test02"
+        },
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "enabledUser": 1,
+            "familyName": "McTeacher",
+            "givenName": "Teach",
+            "orgs": [
+                {
+                    "href": "orgs/015",
+                    "sourcedId": "015",
+                    "type": "user"
+                }
+            ],
+            "role": "teacher",
+            "sourcedId": "003",
+            "status": "active",
+            "username": "test03"
+        }
+    ]
+}

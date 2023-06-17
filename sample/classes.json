@@ -1,0 +1,102 @@
+{
+    "classes": [
+        {
+            "classType": "scheduled",
+            "course": {
+                "href": "courses/01",
+                "sourcedId": "01",
+                "type": "course"
+            },
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "school": {
+                "href": "orgs/016",
+                "sourcedId": "016",
+                "type": "org"
+            },
+            "sourcedId": "01",
+            "status": "active",
+            "terms": [
+                {
+                    "href": "academicSessions/002",
+                    "sourcedId": "002",
+                    "type": "academicSession"
+                }
+            ],
+            "title": "S1Maths"
+        },
+        {
+            "classCode": "S3M",
+            "classType": "scheduled",
+            "course": {
+                "href": "courses/01",
+                "sourcedId": "01",
+                "type": "course"
+            },
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "grades": [
+                "10"
+            ],
+            "periods": [
+                "01"
+            ],
+            "school": {
+                "href": "orgs/016",
+                "sourcedId": "016",
+                "type": "org"
+            },
+            "sourcedId": "02",
+            "status": "active",
+            "subjectCodes": [
+                "CS"
+            ],
+            "subjects": [
+                "Computing Science"
+            ],
+            "terms": [
+                {
+                    "href": "academicSessions/002",
+                    "sourcedId": "002",
+                    "type": "academicSession"
+                }
+            ],
+            "title": "S3Maths"
+        },
+        {
+            "classCode": "S2M",
+            "classType": "scheduled",
+            "course": {
+                "href": "courses/01",
+                "sourcedId": "01",
+                "type": "course"
+            },
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "grades": [
+                "09"
+            ],
+            "periods": [
+                "01"
+            ],
+            "school": {
+                "href": "orgs/016",
+                "sourcedId": "016",
+                "type": "org"
+            },
+            "sourcedId": "03",
+            "status": "active",
+            "subjectCodes": [
+                "CS"
+            ],
+            "subjects": [
+                "Computing Science"
+            ],
+            "terms": [
+                {
+                    "href": "academicSessions/002",
+                    "sourcedId": "002",
+                    "type": "academicSession"
+                }
+            ],
+            "title": "S2Maths"
+        }
+    ]
+}

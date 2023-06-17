@@ -1,0 +1,56 @@
+{
+    "academicSessions": [
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "endDate": "2021-04-01",
+            "parent": {
+                "href": "academicSessions/002",
+                "sourcedId": "002",
+                "type": "academicSession"
+            },
+            "schoolYear": "2021",
+            "sourcedId": "001",
+            "startDate": "2021-01-01",
+            "status": "active",
+            "title": "Spring Term",
+            "type": "term"
+        },
+        {
+            "children": [
+                {
+                    "href": "academicSessions/001",
+                    "sourcedId": "001",
+                    "type": "academicSession"
+                },
+                {
+                    "href": "academicSessions/003",
+                    "sourcedId": "003",
+                    "type": "academicSession"
+                }
+            ],
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "endDate": "2021-04-01",
+            "schoolYear": "2021",
+            "sourcedId": "002",
+            "startDate": "2020-04-01",
+            "status": "active",
+            "title": "Session 20/21",
+            "type": "schoolYear"
+        },
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "endDate": "2021-07-01",
+            "parent": {
+                "href": "academicSessions/002",
+                "sourcedId": "002",
+                "type": "academicSession"
+            },
+            "schoolYear": "2021",
+            "sourcedId": "003",
+            "startDate": "2021-04-01",
+            "status": "tobedeleted",
+            "title": "Summer Term",
+            "type": "term"
+        }
+    ]
+}
