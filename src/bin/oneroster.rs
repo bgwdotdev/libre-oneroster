@@ -18,7 +18,6 @@ fn cli() -> Result<(), ServerError> {
     let matches = clap::Command::new("libre-oneroster")
         .version("0.0.1")
         .subcommand_required(true)
-        //.setting(clap::AppSettings::ArgRequiredElseHelp)
         .subcommand(
             clap::Command::new("client")
                 .arg(
@@ -118,12 +117,14 @@ fn cli() -> Result<(), ServerError> {
                         .short('a')
                         .long("address")
                         .value_name("IP:PORT")
+                        .value_parser(clap::value_parser!(std::net::SocketAddr))
                         .default_value("127.0.0.1:8080"),
                 )
                 .arg(
                     clap::Arg::new("init")
                         .help("initializes the database and provides admin credentials")
                         .long("init")
+                        .action(clap::ArgAction::SetTrue)
                 )
                 .arg(
                     clap::Arg::new("database")
