@@ -12,8 +12,9 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-        name = "oneroster";
-        version = "0.1.0";
+        cargo = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        version = cargo.package.version;
+        name = cargo.package.name;
       in
       rec {
         devShell = pkgs.mkShell {
@@ -71,11 +72,16 @@
         apps.dockerPush = flake-utils.lib.mkApp {
           drv = pkgs.writeShellScriptBin "dockerPush" ''
             set -eu
-            nix build .#docker -o oneroster
-            REPO="git.bgw.dev/bgw/libre-oneroster:${version}"
-            ${pkgs.skopeo}/bin/skopeo copy --insecure-policy --dest-creds "bgw:$CI_PACKAGE_WRITE" docker-archive:oneroster docker://$REPO
+            nix build .#docker -o ${name}
+            REPO="git.bgw.dev/bgw/${name}:${version}"
+            ${pkgs.skopeo}/bin/skopeo copy \
+              --insecure-policy \
+              --dest-creds "bgw:$CI_PACKAGE_WRITE" \
+              docker-archive:${name} \
+              docker://$REPO
           '';
         };
+
       }
     );
 }
