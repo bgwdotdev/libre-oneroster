@@ -1,13 +1,22 @@
 name: libre oneroster
 on: [push]
 jobs:
-  nix-build:
+  build:
+    if: github.ref_name != 'master'
     runs-on: nix
     container:
       image: git.bgw.dev/bgw/nix-act:2.16.1
     steps:
       - uses: actions/checkout@v3
-      #- run: nix build .#docker
+      - run: nix build
+
+  push:
+    if: github.ref_name == 'master'
+    runs-on: nix
+    container:
+      image: git.bgw.dev/bgw/nix-act:2.16.1
+    steps:
+      - uses: actions/checkout@v3
       - run: nix run .#dockerPush
         env:
           CI_PACKAGE_WRITE: ${{ secrets.CI_PACKAGE_WRITE }}
