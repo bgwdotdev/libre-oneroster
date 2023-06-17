@@ -1,0 +1,11 @@
+name: libre oneroster
+on: [push]
+jobs:
+  nix-build:
+    runs-on: nix
+    container:
+      image: git.bgw.dev/bgw/nix-act:2.16.1
+    steps:
+      - uses: actions/checkout@v3
+      #- run: nix build .#docker
+      - run: nix run .#dockerPush
