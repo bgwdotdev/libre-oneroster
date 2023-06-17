@@ -67,6 +67,15 @@
           };
           config.EntryPoint = [ "/bin/oneroster" ];
         };
+
+        apps.dockerPush = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellScriptBin "dockerPush" ''
+            set -eu
+            OCI=$(nix build .#docker --no-link)
+            REPO="git.bgw.dev/bgw/libre-oneroster:${version}"
+            ${pkgs.skopeo}/bin/skopeo copy --dest-creds "$CI_PACKAGE_WRITE" docker-image://$OCI docker://$REPO
+          '';
+        };
       }
     );
 }
