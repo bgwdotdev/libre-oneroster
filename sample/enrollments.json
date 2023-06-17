@@ -1,0 +1,25 @@
+{
+    "enrollments": [
+        {
+            "sourcedId": "01",
+            "status": "active",
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "user": { "sourcedId": "001" },
+            "class": { "sourcedId": "01" },
+            "school": { "sourcedId": "017" },
+            "role": "student"
+        },
+        {
+            "sourcedId": "02",
+            "status": "active",
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "user": { "sourcedId": "003" },
+            "class": { "sourcedId": "01" },
+            "school": { "sourcedId": "017" },
+            "role": "teacher",
+            "primary": 1,
+            "beginDate": "2012-07-01",
+            "endDate": "2013-07-01"
+        }
+    ]
+}
