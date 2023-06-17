@@ -73,7 +73,7 @@
             set -eu
             nix build .#docker -o oneroster
             REPO="git.bgw.dev/bgw/libre-oneroster:${version}"
-            ${pkgs.skopeo}/bin/skopeo copy --dest-creds "bgw:$CI_PACKAGE_WRITE" docker-archive:oneroster docker://$REPO
+            ${pkgs.skopeo}/bin/skopeo copy --insecure-policy --dest-creds "bgw:$CI_PACKAGE_WRITE" docker-archive:oneroster docker://$REPO
           '';
         };
       }
