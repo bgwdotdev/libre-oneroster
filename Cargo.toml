@@ -2,7 +2,7 @@
 name = "libre-oneroster"
 version = "0.2.0"
 authors = ["fffnite <bradley.whiteford@live.co.uk>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,7 +18,7 @@ serde_json = "1.0"
 serde_with = "3.0.0"
 log = "0.4"
 env_logger = "0.10.0"
-clap = "=3.0.0-beta.2"
+clap = { version = "4.3.4", features = [ "derive", "env" ] }
 sqlx = { version = "0.5", features = [ "sqlite", "runtime-async-std-native-tls", "chrono" ] }
 # pin core due to regression after 5.6 breaking query!()
 sqlx-core = "=0.5.5"

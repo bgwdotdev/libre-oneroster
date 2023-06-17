@@ -58,6 +58,7 @@ pub struct Config {
     pub provider: Provider,
 }
 
+#[derive(Clone, Copy, clap::ValueEnum)]
 pub enum Provider {
     Isams,
     WcbsPass,
