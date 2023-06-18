@@ -84,7 +84,7 @@ pub(super) async fn create_api_user(
         new.encrypt,
         user.tag,
     )
-    .execute(&mut t)
+    .execute(&mut *t)
     .await?;
     for scope in user.scope.split(' ') {
         sqlx::query!(
@@ -95,7 +95,7 @@ pub(super) async fn create_api_user(
             new.creds.client_id,
             scope,
         )
-        .execute(&mut t)
+        .execute(&mut *t)
         .await?;
     }
     t.commit().await?;
@@ -347,7 +347,7 @@ macro_rules! create_put_db {
             let mut transaction = db.begin().await?;
             for i in data.$object.iter() {
                 let json = serde_json::to_string(i)?;
-                sqlx::query!($query, json).execute(&mut transaction).await?;
+                sqlx::query!($query, json).execute(&mut *transaction).await?;
             }
             transaction.commit().await?;
             Ok(())
@@ -431,8 +431,8 @@ async fn init_db(path: &str, create: bool) -> Result<()> {
 
 async fn init_schema(pool: &sqlx::SqlitePool) -> Result<()> {
     let mut t = pool.begin().await?;
-    sqlx::query_file!("db/schema.sql").execute(&mut t).await?;
-    sqlx::query_file!("db/init.sql").execute(&mut t).await?;
+    sqlx::query_file!("db/schema.sql").execute(&mut *t).await?;
+    sqlx::query_file!("db/init.sql").execute(&mut *t).await?;
     t.commit().await?;
     Ok(())
 }

@@ -2,7 +2,7 @@
 name = "libre-oneroster"
 version = "0.2.0"
 authors = ["fffnite <bradley.whiteford@live.co.uk>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,21 +15,19 @@ futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_with = "1.7"
+serde_with = "3.0.0"
 log = "0.4"
-env_logger = "0.7"
-clap = "3.0.0-beta.2"
-sqlx = { version = "0.5", features = [ "sqlite", "runtime-async-std-native-tls", "chrono" ] }
-# pin core due to regression after 5.6 breaking query!()
-sqlx-core = "=0.5.5"
-jsonwebtoken = "=8.0.0-beta.4"
+env_logger = "0.10.0"
+clap = { version = "4.3.4", features = [ "derive", "env" ] }
+sqlx = { version = "0.7.0-alpha.3", features = [ "sqlite", "runtime-async-std-native-tls", "chrono" ] }
+jsonwebtoken = "8.0.0-beta.0"
 openssl = "0.10"
 lazy_static = "1.4"
-uuid = { version = "0.8", features = [ "v4" ] }
+uuid = { version = "1.3.4", features = [ "v4" ] }
 rand = { version = "0.8", features = [ "getrandom" ]}
 hex = "0.4"
-bcrypt = "0.9"
+bcrypt = "0.14"
 http-types = "2.10"
 jq-rs = "0.4"
 regex = "1.5"
-tiberius = { version = "0.5", features = [ "sql-browser-async-std" ] }
+tiberius = { version = "0.12.2", features = [ "sql-browser-async-std" ] }

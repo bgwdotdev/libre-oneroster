@@ -1,0 +1,18 @@
+{
+    "subjects": [
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "sourcedId": "01",
+            "status": "active",
+            "subjectCode": "MATH",
+            "title": "maths"
+        },
+        {
+            "dateLastModified": "2012-04-23T18:25:43.511Z",
+            "sourcedId": "02",
+            "status": "active",
+            "subjectCode": "CS",
+            "title": "Computing Science"
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+services:
+  oneroster:
+    #image: git.bgw.dev/bgw/libre-oneroster:0.2.0
+    image: localhost/libre-oneroster:0.2.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - or_data:/opt/oneroster/data
+      - ./certs:/opt/oneroster/certs:ro
+    environment:
+      OR_ADDR: "0.0.0.0:8080"
+      OR_DB: "/opt/oneroster/data/oneroster.db"
+      OR_JWT_KEY: "/opt/oneroster/certs/oneroster.key"
+      OR_JWT_CRT: "/opt/oneroster/certs/oneroster.crt"
+      OR_HTTPS_KEY: "/opt/oneroster/certs/oneroster.key"
+      OR_HTTPS_CRT: "/opt/oneroster/certs/oneroster.crt"
+    command: server --init
+
+volumes:
+  or_data: {}
+  or_config: {}

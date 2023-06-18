@@ -22,10 +22,7 @@ pub async fn run(conf: Config) -> surf::Result<()> {
 }
 
 pub async fn connect(conf: Config) -> surf::Result<(surf::Client, String)> {
-    let client: surf::Client = surf::Config::new()
-        .set_base_url(surf::Url::parse(conf.url.as_str())?)
-        .try_into()?;
-
+    let client: surf::Client = surf::Config::new().set_base_url(surf::Url::parse(conf.url.as_str())?).try_into()?;
     let token = login(&client, conf).await?;
 
     Ok((client, token))
