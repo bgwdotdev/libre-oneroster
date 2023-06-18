@@ -1,10 +1,22 @@
-version := 0.2.0
+dev:
+	nix develop
 
 build:
-	cargo build --release
+	cargo build
 
-podman-server:
-	podman build --tag oneroster:${version} .
+test:
+	cargo test
 
-podman-sync:
-	podman build --tag oneroster-sync:${version} --file Dockerfile-sync .
+nix:
+	nix build
+
+docker:
+	nix build .#docker
+	docker load -i ./result
+
+database:
+	sqlite3 oneroster.db < db/schema.sql
+	sqlite3 oneroster.db < db/init.sql
+
+ci:
+	act -W .gitea/workflows
