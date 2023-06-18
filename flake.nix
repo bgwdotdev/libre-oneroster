@@ -12,9 +12,9 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-        cargo = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-        version = cargo.package.version;
-        name = cargo.package.name;
+        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        version = cargoToml.package.version;
+        name = cargoToml.package.name;
       in
       rec {
         devShell = pkgs.mkShell {
@@ -30,6 +30,13 @@
           ];
           JQ_LIB_DIR = "${pkgs.jq.lib}";
           DATABASE_URL = "sqlite:db/oneroster.db";
+          shellHook = ''
+            if [ ! -f db/oneroster.db ]; then
+              sqlite3 db/oneroster.db < db/schema.sql
+              sqlite3 db/oneroster.db < db/init.sql
+            fi
+          '';
+
         };
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
@@ -75,10 +82,10 @@
             nix build .#docker -o ${name}
             REPO="git.bgw.dev/bgw/${name}:${version}"
             ${pkgs.skopeo}/bin/skopeo copy \
-              --insecure-policy \
-              --dest-creds "bgw:$CI_PACKAGE_WRITE" \
-              docker-archive:${name} \
-              docker://$REPO
+            --insecure-policy \
+            --dest-creds "bgw:$CI_PACKAGE_WRITE" \
+            docker-archive:${name} \
+            docker://$REPO
           '';
         };
 
