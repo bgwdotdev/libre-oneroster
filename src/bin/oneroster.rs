@@ -129,6 +129,7 @@ fn cli() -> Result<(), ServerError> {
                         .help("address to bind server to")
                         .short('a')
                         .long("address")
+                        .env("OR_ADDR")
                         .value_name("IP:PORT")
                         .value_parser(clap::value_parser!(std::net::SocketAddr))
                         .default_value("127.0.0.1:8080"),
@@ -137,6 +138,7 @@ fn cli() -> Result<(), ServerError> {
                     clap::Arg::new("init")
                         .help("initializes the database and provides admin credentials")
                         .long("init")
+                        .env("OR_INIT")
                         .action(clap::ArgAction::SetTrue)
                 )
                 .arg(
@@ -144,6 +146,7 @@ fn cli() -> Result<(), ServerError> {
                         .help("Path to the database file")
                         .short('d')
                         .long("database")
+                        .env("OR_DB")
                         .value_name("PATH")
                         .default_value("oneroster.db"),
                 )
@@ -152,6 +155,7 @@ fn cli() -> Result<(), ServerError> {
                         .help("path to the pem encoded private key used to encode the JWT")
                         .short('J')
                         .long("private-key")
+                        .env("OR_JWT_KEY")
                         .value_name("PATH")
                         .required(true),
                 )
@@ -160,6 +164,7 @@ fn cli() -> Result<(), ServerError> {
                         .help("path to the pem encoded public key used to decode the JWT")
                         .short('j')
                         .long("public-key")
+                        .env("OR_JWT_CRT")
                         .value_name("PATH")
                         .required(true),
                 )
@@ -168,6 +173,7 @@ fn cli() -> Result<(), ServerError> {
                         .help("path to the pem encoded private key used to secure HTTPS")
                         .short('W')
                         .long("web-private-key")
+                        .env("OR_HTTPS_KEY")
                         .value_name("PATH")
                         .required(true),
                 )
@@ -176,6 +182,7 @@ fn cli() -> Result<(), ServerError> {
                         .help("path to the pem encoded public key used to secure HTTPS")
                         .short('w')
                         .long("web-public-key")
+                        .env("OR_HTTPS_CRT")
                         .value_name("PATH")
                         .required(true),
                 ),
