@@ -1,1 +1,4 @@
 target/
+certs/
+db/*.db*
+result
