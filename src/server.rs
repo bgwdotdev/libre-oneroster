@@ -3,6 +3,7 @@ mod db;
 pub mod errors;
 mod params;
 
+use async_std::prelude::*;
 pub use errors::*;
 use http_types::mime;
 use std::io::prelude::*;
@@ -10,7 +11,6 @@ use tide::prelude::*;
 use tide::utils::After;
 use tide::Request;
 use tide_rustls::TlsListener;
-use async_std::prelude::*;
 
 type Result<T> = std::result::Result<T, ServerError>;
 

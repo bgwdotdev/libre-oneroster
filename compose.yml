@@ -1,7 +1,6 @@
 services:
   oneroster:
-    #image: git.bgw.dev/bgw/libre-oneroster:0.2.0
-    image: localhost/libre-oneroster:0.2.0
+    image: ghcr.io/bgwdotdev/libre-oneroster:0.2.2
     ports:
       - "8080:8080"
     volumes:

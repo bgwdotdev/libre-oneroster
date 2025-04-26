@@ -73,6 +73,13 @@ oneroster server -d myoneroster.db -j oneroster.pem -J oneroster.key.pem -w oner
 docker compose up
 ```
 
+### Logs
+
+logging level can be configured via the `RUST_LOG` environment variable
+
+```bash
+RUST_LOG=debug oneroster server --init ...
+```
 
 ## Client 
 

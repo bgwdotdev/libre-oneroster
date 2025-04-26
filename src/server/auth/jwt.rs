@@ -5,7 +5,6 @@ use tide::prelude::*;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct Claims {
-    aud: String,
     exp: u64,
     sub: String,
     pub(crate) scope: String,
@@ -33,7 +32,6 @@ pub(crate) async fn create_token(
     let exp = SystemTime::now().duration_since(std::time::UNIX_EPOCH)?
         + std::time::Duration::from_secs(exp_in);
     let claims = Claims {
-        aud: "localhost".to_string(),
         exp: exp.as_secs(),
         sub: id,
         scope: scope.clone(),
@@ -65,6 +63,9 @@ pub(crate) async fn validate_token(token: String, key: &jsonwebtoken::DecodingKe
             log::debug!("validated:\n{:?}", t);
             true
         }
-        Err(_) => false,
+        Err(e) => {
+            log::debug!("invalid: {e}");
+            false
+        }
     }
 }

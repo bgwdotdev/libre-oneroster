@@ -17,18 +17,19 @@
         name = cargoToml.package.name;
       in
       rec {
-        devShell = pkgs.mkShell {
+        devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             cargo
             rustc
             rust-analyzer
-            jq.lib
+            rustfmt
+            jq
             openssl.dev
             sqlite
             oniguruma
-            pkgconfig
+            pkg-config
           ];
-          JQ_LIB_DIR = "${pkgs.jq.lib}";
+          JQ_LIB_DIR = "${pkgs.jq}";
           DATABASE_URL = "sqlite:db/oneroster.db";
           shellHook = ''
             if [ ! -f db/oneroster.db ]; then
@@ -45,12 +46,12 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = [
-            pkgs.pkgconfig
+            pkgs.pkg-config
             pkgs.openssl.dev
             pkgs.sqlite
           ];
           buildInputs = [
-            pkgs.jq.lib
+            pkgs.jq
             pkgs.oniguruma
           ];
           preConfigure = ''
@@ -58,7 +59,7 @@
             sqlite3 db/oneroster.db < db/init.sql
           '';
           doCheck = false;
-          JQ_LIB_DIR = "${pkgs.jq.lib}";
+          JQ_LIB_DIR = "${pkgs.jq}";
           DATABASE_URL = "sqlite:db/oneroster.db";
           PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
         };
